@@ -19,7 +19,8 @@ class _ProgressPageState extends State<ProgressPage> {
 
   String? _selectedDayFilter; 
 
-  void _showAddWeightDialog(BuildContext context, String exerciseName, bool isDark, Color dialogBg, Color textColor, String unit) {
+  // THE FIX: Removed the static 'unit' parameter so the dialog can read it live
+  void _showAddWeightDialog(BuildContext context, String exerciseName, bool isDark, Color dialogBg, Color textColor) {
     TextEditingController weightController = TextEditingController();
     
     showGeneralDialog(
@@ -35,48 +36,140 @@ class _ProgressPageState extends State<ProgressPage> {
         );
       },
       pageBuilder: (context, animation, secondaryAnimation) {
-        return AlertDialog(
-          backgroundColor: dialogBg,
-          surfaceTintColor: Colors.transparent, 
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('Record Weight', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: weightController,
-            style: TextStyle(color: textColor),
-            cursorColor: textColor,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            inputFormatters: [
-              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
-            ],
-            autofocus: true,
-            decoration: InputDecoration(
-              hintText: unit == 'kg' ? 'e.g., 100' : 'e.g., 225',
-              suffixText: unit,
-              hintStyle: const TextStyle(color: Colors.grey),
-              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade600)),
-              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor)),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () {
-                if (weightController.text.trim().isNotEmpty) {
-                  double? weight = double.tryParse(weightController.text.trim());
-                  if (weight != null) {
-                    widget.appState.addWeightRecord(exerciseName, weight);
-                  }
-                }
-                Navigator.pop(context);
-              },
-              child: Text('Save', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-            ),
-          ],
+        // THE FIX: ListenableBuilder allows the popup to instantly react to the toggle switch
+        return ListenableBuilder(
+          listenable: widget.appState,
+          builder: (context, child) {
+            final bool isKg = widget.appState.isKg;
+            final String currentUnit = isKg ? "kg" : "lbs";
+
+            return AlertDialog(
+              backgroundColor: dialogBg,
+              surfaceTintColor: Colors.transparent, 
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Text('Record Weight', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: weightController,
+                    style: TextStyle(color: textColor),
+                    cursorColor: textColor,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                    ],
+                    autofocus: true,
+                    decoration: InputDecoration(
+                      hintText: isKg ? 'e.g., 100' : 'e.g., 225',
+                      suffixText: currentUnit,
+                      hintStyle: const TextStyle(color: Colors.grey),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade600)),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor)),
+                    ),
+                  ),
+                  const SizedBox(height: 30),
+                  
+                  // THE FIX: Injected the iOS Style Toggle
+                  _buildUnitToggle(isDark, isKg),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                ),
+                TextButton(
+                  onPressed: () {
+                    if (weightController.text.trim().isNotEmpty) {
+                      double? weight = double.tryParse(weightController.text.trim());
+                      if (weight != null) {
+                        widget.appState.addWeightRecord(exerciseName, weight);
+                      }
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: Text('Save', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                ),
+              ],
+            );
+          }
         );
       },
+    );
+  }
+
+  // THE FIX: Premium Segmented Slider
+  Widget _buildUnitToggle(bool isDark, bool isKg) {
+    return GestureDetector(
+      onTap: () {
+        HapticFeedback.lightImpact();
+        widget.appState.toggleWeightUnit();
+      },
+      child: Container(
+        width: 130,
+        height: 40,
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200,
+          borderRadius: BorderRadius.circular(20),
+        ),
+        child: Stack(
+          children: [
+            // The Sliding Thumb
+            AnimatedPositioned(
+              duration: const Duration(milliseconds: 250),
+              curve: Curves.easeOutCubic,
+              left: isKg ? 65 : 2,
+              top: 2,
+              bottom: 2,
+              child: Container(
+                width: 63,
+                decoration: BoxDecoration(
+                  color: isDark ? const Color(0xFF48484A) : Colors.white,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    )
+                  ],
+                ),
+              ),
+            ),
+            
+            // The Text Labels
+            Row(
+              children: [
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'lbs',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: !isKg ? (isDark ? Colors.white : Colors.black) : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+                Expanded(
+                  child: Center(
+                    child: Text(
+                      'kg',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: isKg ? (isDark ? Colors.white : Colors.black) : Colors.grey,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -197,7 +290,8 @@ class _ProgressPageState extends State<ProgressPage> {
                                   Row(
                                     children: [
                                       BouncingWidget(
-                                        onTap: () => _showAddWeightDialog(context, name, isDark, dialogBg, textColor, unit),
+                                        // THE FIX: Removed the static 'unit' argument here
+                                        onTap: () => _showAddWeightDialog(context, name, isDark, dialogBg, textColor),
                                         child: CircleAvatar(
                                           radius: 20,
                                           backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200,
@@ -322,7 +416,6 @@ class _ChartPageState extends State<ChartPage> {
   @override
   void initState() {
     super.initState();
-    // THE FIX: Wait until the container has 100% finished scaling in before starting the chart
     Future.delayed(const Duration(milliseconds: 600), () {
       if (mounted) setState(() => _animateChart = true);
     });
@@ -451,7 +544,6 @@ class _ChartPageState extends State<ChartPage> {
                                   )
                                 ],
                               ),
-                              // THE FIX: Increased duration and buttery smooth curve
                               duration: const Duration(milliseconds: 1200), 
                               curve: Curves.easeOutCubic, 
                             ),

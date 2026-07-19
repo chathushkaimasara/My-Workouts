@@ -1,12 +1,30 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; 
 import 'state/workout_state.dart';
 import 'screens/home_page.dart';
+import 'screens/welcome_page.dart';
+import 'screens/splash_screen.dart'; 
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // --- THE FIX: GLOBAL CRASH SCREEN ---
+  // Lock the app to portrait mode for a consistent UI experience
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // Make the top status bar transparent so your splash screen is seamless
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light, 
+      systemNavigationBarColor: Colors.black,
+    ),
+  );
+
+  // --- GLOBAL CRASH SCREEN ---
   // Intercepts UI build errors and replaces the red screen of death with our custom UI
   ErrorWidget.builder = (FlutterErrorDetails details) {
     return Material(
@@ -83,7 +101,7 @@ class _WorkoutAppState extends State<WorkoutApp> {
       listenable: appState,
       builder: (context, child) {
         return MaterialApp(
-          title: 'Minimal Workout',
+          title: 'Workouts',
           debugShowCheckedModeBanner: false,
           themeMode: appState.isDarkMode ? ThemeMode.dark : ThemeMode.light,
           
@@ -107,7 +125,8 @@ class _WorkoutAppState extends State<WorkoutApp> {
             ),
           ),
           
-          home: HomePage(appState: appState),
+          // THE FIX: Replaced the routing logic with the SplashScreen
+          home: SplashScreen(appState: appState),
         );
       },
     );

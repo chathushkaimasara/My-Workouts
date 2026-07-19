@@ -14,6 +14,9 @@ class WorkoutState extends ChangeNotifier {
   bool isDarkMode = true; 
   bool isKg = false; 
   
+  // NEW: Tracks if this is a brand new user
+  bool isFirstLaunch = true; 
+  
   String userName = "My Name";
   String? profileImagePath;
 
@@ -21,6 +24,12 @@ class WorkoutState extends ChangeNotifier {
 
   WorkoutState() {
     loadData();
+  }
+
+  // NEW: Triggers when the user successfully slides the button
+  void completeFirstLaunch() {
+    isFirstLaunch = false;
+    _saveData();
   }
 
   void toggleTheme() {
@@ -81,6 +90,7 @@ class WorkoutState extends ChangeNotifier {
         'userName': userName,
         'isDarkMode': isDarkMode,
         'isKg': isKg, 
+        'isFirstLaunch': isFirstLaunch,
         'exerciseProgress': exerciseProgress.map((k, v) => MapEntry(k, v.map((e) => e.toJson()).toList())), 
       };
 
@@ -141,6 +151,7 @@ class WorkoutState extends ChangeNotifier {
         userName = backup['userName'] ?? "My Name";
         isDarkMode = backup['isDarkMode'] ?? true;
         isKg = backup['isKg'] ?? false; 
+        isFirstLaunch = backup['isFirstLaunch'] ?? false;
 
         if (backup['exerciseProgress'] != null) {
           Map<String, dynamic> epMap = backup['exerciseProgress'];
@@ -210,7 +221,6 @@ class WorkoutState extends ChangeNotifier {
     days = [...pinned, ...unpinned];
   }
 
-  // THE FIX: Enables manual drag-and-drop sorting on the Home Screen!
   void reorderDays(int oldIndex, int newIndex) {
     if (oldIndex < newIndex) newIndex -= 1;
     final item = days.removeAt(oldIndex);
@@ -276,6 +286,7 @@ class WorkoutState extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     
+    await prefs.setBool('is_first_launch', isFirstLaunch); // Saved here
     await prefs.setBool('is_dark_mode', isDarkMode);
     await prefs.setBool('is_kg', isKg); 
     await prefs.setString('user_name', userName);
@@ -295,6 +306,8 @@ class WorkoutState extends ChangeNotifier {
   Future<void> loadData() async {
     final prefs = await SharedPreferences.getInstance();
     
+    // Defaults to true if no data exists (new install)
+    isFirstLaunch = prefs.getBool('is_first_launch') ?? true; 
     isDarkMode = prefs.getBool('is_dark_mode') ?? true;
     isKg = prefs.getBool('is_kg') ?? false; 
     userName = prefs.getString('user_name') ?? "My Name";
