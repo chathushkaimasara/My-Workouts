@@ -1,0 +1,11 @@
+**Welcome to the first official release of My Workouts!** 🏋️‍♂️
+A distraction-free, premium fitness tracker designed to help you log your heavy lifts and watch your strength grow.
+## ✨ Key Features
+ * **Premium Design:** Sleek iOS-style frosted glass UI, adaptive Light/Dark mode, and cinematic custom animations.
+ * **Smart Scheduling:** Build custom workout days, reorder your week seamlessly, and personalize with background images.
+ * **Track Your Progress:** Log sets and reps on the fly, and view your personal records with auto-generated charts.
+ * **100% Private & Offline:** Zero accounts required. Includes built-in data backup and restore directly to your device.
+## ⚖️ License & Acknowledgments
+> The source code is provided under the **MIT License**.
+> *Note: The **RIVERA** font used in this project is copyrighted by Shinko Art Studio and allows for embedding and distribution.*
+> 
