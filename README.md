@@ -36,8 +36,6 @@
 
 <div align="center">
   <img src="assets/banner.png" width="99%" alt="My Workouts Banner" />
-  <br/>
-  <br/>
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.png" width="24%" alt="Welcome Screen" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.png" width="24%" alt="Home Schedule" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.png" width="24%" alt="Workout Logging" />
