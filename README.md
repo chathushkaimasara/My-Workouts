@@ -34,13 +34,16 @@
   <strong>My Workouts</strong> is a distraction-free fitness tracker designed to help you plan routines, log heavy lifts, and track long-term strength progress. Built with Flutter, it provides a native, highly polished user experience without clutter, ads, or account requirements.
 </p>
 
-<p align="middle">
+<div align="center">
   <img src="assets/banner.png" width="99%" alt="My Workouts Banner" />
+  <br/>
+  <br/>
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.png" width="24%" alt="Welcome Screen" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.png" width="24%" alt="Home Schedule" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.png" width="24%" alt="Workout Logging" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-progress.png" width="24%" alt="Progress Charts" />
-</p>
+</div>
+
 
 ---
 
