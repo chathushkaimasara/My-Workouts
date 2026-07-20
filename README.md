@@ -1,4 +1,3 @@
-```markdown
 <p align="center">
   <br/>
   <img src="assets/app_icon.png" width="200" alt="My Workouts Icon" />
@@ -149,7 +148,7 @@ flutter doctor
    
    ```
 ## ⚖️ License
-```xml
+```
 Designed and developed by 2026 Chathushka
 
     Licensed under the MIT License; you may not use this file except in compliance with the License.
