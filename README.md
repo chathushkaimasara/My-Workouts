@@ -1,40 +1,76 @@
-<p align="center">
-  <img src="assets/banner.png" alt="My Workouts Banner" width="100%" />
-</p>
+<div align="center">
+<br/>
+<img src="assets/icon.png" width="200" alt="My Workouts Icon" />
+</div>
 
-<h1 align="center">My Workouts</h1>
+<div align="center">
+
+# My Workouts
+
+</div>
 
 <p align="center">
   <strong>Your Ultimate Gym Log — Minimal, Ad-Free, and 100% Offline.</strong>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Flutter-02569B?style=for-the-badge&logo=flutter&logoColor=white" alt="Flutter" />
-  <img src="https://img.shields.io/badge/Dart-0175C2?style=for-the-badge&logo=dart&logoColor=white" alt="Dart" />
-  <img src="https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge" alt="License" />
-  <img src="https://img.shields.io/badge/Version-1.0.0-brightgreen.svg?style=for-the-badge" alt="Version" />
+  <img alt="Flutter" src="https://img.shields.io/badge/Flutter-02569B?logo=flutter&logoColor=white&style=for-the-badge"/>
+  <img alt="Dart" src="https://img.shields.io/badge/Dart-0175C2?logo=dart&logoColor=white&style=for-the-badge"/>
+  <img alt="Version" src="https://img.shields.io/badge/Version-1.0.0-brightgreen.svg?style=for-the-badge"/>
+  <br/>
+  <br/>
+  <a href="https://hits.sh/github.com/chathushkaimasara/My-Workouts/">
+    <img src="https://hits.sh/github.com/chathushkaimasara/My-Workouts.svg?style=for-the-badge&label=Page%20Views&color=ff3f6f" alt="Page Views"/>
+  </a>
+  <a href="https://github.com/chathushkaimasara/My-Workouts/releases">
+    <img src="https://img.shields.io/github/downloads/chathushkaimasara/My-Workouts/total?color=ff9500&style=for-the-badge&logo=github" alt="Downloads"/>
+  </a>
+  <a href="https://github.com/chathushkaimasara/My-Workouts/stargazers">
+    <img src="https://img.shields.io/github/stars/chathushkaimasara/My-Workouts?color=ffff00&style=for-the-badge&logo=github" alt="Stars"/>
+  </a>
 </p>
 
 ---
 
-## 📖 About The App
+<div align="center">
+
+# 🗺️ Project Overview
 
 **My Workouts** is a distraction-free fitness tracker designed to help you plan routines, log heavy lifts, and track long-term strength progress. Built with Flutter, it provides a native, highly polished user experience without clutter, ads, or account requirements.
 
+</div>
+
+<p align="middle">
+  <img src="assets/banner.png" width="99%" alt="My Workouts Banner" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.png" width="24%" alt="Welcome Screen" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.png" width="24%" alt="Home Schedule" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.png" width="24%" alt="Workout Logging" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-progress.png" width="24%" alt="Progress Charts" />
+</p>
+
 ---
 
-## 📱 Screenshots
-
 <div align="center">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.png" width="23%" alt="Welcome Screen" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.png" width="23%" alt="Home Schedule" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.png" width="23%" alt="Workout Logging" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-progress.png" width="23%" alt="Progress Charts" />
+
+# 📲 Download
+
+Download the latest optimized APK directly from GitHub, or find the app on F-Droid!
+
+<br/>
+
+<a href="https://github.com/chathushkaimasara/My-Workouts/releases/latest">
+  <img alt="Get Latest Release" src="https://img.shields.io/badge/Get_Latest_Release-181717?style=for-the-badge&logo=github" height="50"/>
+</a>
+&nbsp;
+<a href="https://f-droid.org/">
+  <img alt="F-Droid" src="https://img.shields.io/badge/F--Droid-Coming_Soon-1976D2?style=for-the-badge&logo=f-droid&logoColor=white" height="50"/>
+</a>
+
 </div>
 
 ---
 
-## ✨ Key Features
+# ✨ Key Features
 
 * **Sleek UI/UX:** iOS-style frosted glass UI, system-adaptive light/dark mode, and custom animations.
 * **Smart Routine Builder:** Custom workout days (e.g., Push, Pull, Legs) with reorderable scheduling and custom background images.
@@ -44,21 +80,91 @@
 
 ---
 
-## 🛠️ Built With
+# 📚 Tech Stack & Libraries
 
-* **[Flutter](https://flutter.dev/)** - Cross-platform UI framework
-* **[Dart](https://dart.dev/)** - Core programming language
+* **[Flutter](https://flutter.dev/)** - Cross-platform UI framework.
+* **[Dart](https://dart.dev/)** - Core programming language.
+* **Offline Storage** - Fully local database implementation ensuring user privacy.
+* **Custom Animations** - Smooth transitions and splash screen logic built natively in Flutter.
 
 ---
 
-## 🚀 Getting Started
+# 💻 How to Run This Project
+
+To get a local copy up and running, follow these simple steps.
 
 ### Prerequisites
-* Flutter SDK (Latest Stable)
-* Android Studio / VS Code
+Make sure you have the Flutter SDK installed on your machine.
+* [Install Flutter](https://docs.flutter.dev/get-started/install)
+* Ensure your Android environment is set up (Android Studio / Android SDK).
 
-### Installation
+Run the following command to verify your setup:
+```bash
+flutter doctor
 
-1. **Clone the repository:**
+```
+### Installation & Build
+ 1. **Clone the repository:**
    ```bash
    git clone [https://github.com/chathushkaimasara/My-Workouts.git](https://github.com/chathushkaimasara/My-Workouts.git)
+   
+   ```
+ 2. **Navigate to the project directory:**
+   ```bash
+   cd My-Workouts
+   
+   ```
+ 3. **Fetch dependencies:**
+   ```bash
+   flutter pub get
+   
+   ```
+ 4. **Run the app on a connected device or emulator:**
+   ```bash
+   flutter run
+   
+   ```
+ 5. **(Optional) Build optimized APKs for release:**
+   ```bash
+   flutter build apk --split-per-abi
+   
+   ```
+<div align="center">
+# ☕ Support the Project
+If you like this app and find it useful, please consider supporting its development! The easiest way is to leave a star on the repository, or you can buy me a coffee.
+<a href="https://github.com/chathushkaimasara/My-Workouts/stargazers">
+<img alt="Star Project" src="https://img.shields.io/badge/⭐_Star_This_Project-FFD700?style=for-the-badge&logo=github&logoColor=black" height="45"/>
+</a>
+ 
+<a href="https://www.buymeacoffee.com/">
+<img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" height="45"/>
+</a>
+# ⭐ Star History
+<a href="https://www.star-history.com/?repos=chathushkaimasara/My-Workouts">
+<picture>
+<source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date&theme=dark" />
+<source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
+<img alt="Star History Chart" src="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
+</picture>
+</a>
+</div>
+# ⚖️ License
+
+Designed and developed by 2026 Chathushka
+
+    Licensed under the MIT License; you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)
+
+    Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and limitations under the License.
+
+    Font Asset: 
+    The RIVERA font used in this project is copyrighted by Shinko Art Studio and explicitly permitted for distribution and embedding within apps.
+
+```
+```
+
+```
