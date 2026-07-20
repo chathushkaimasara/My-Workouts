@@ -1,13 +1,10 @@
-<div align="center">
-<br/>
-<img src="assets/icon.png" width="200" alt="My Workouts Icon" />
-</div>
+```markdown
+<p align="center">
+  <br/>
+  <img src="assets/app_icon.png" width="200" alt="My Workouts Icon" />
+</p>
 
-<div align="center">
-
-# My Workouts
-
-</div>
+<h1 align="center">My Workouts</h1>
 
 <p align="center">
   <strong>Your Ultimate Gym Log — Minimal, Ad-Free, and 100% Offline.</strong>
@@ -32,13 +29,11 @@
 
 ---
 
-<div align="center">
+<h2 align="center">🗺️ Project Overview</h2>
 
-# 🗺️ Project Overview
-
-**My Workouts** is a distraction-free fitness tracker designed to help you plan routines, log heavy lifts, and track long-term strength progress. Built with Flutter, it provides a native, highly polished user experience without clutter, ads, or account requirements.
-
-</div>
+<p align="center">
+  <strong>My Workouts</strong> is a distraction-free fitness tracker designed to help you plan routines, log heavy lifts, and track long-term strength progress. Built with Flutter, it provides a native, highly polished user experience without clutter, ads, or account requirements.
+</p>
 
 <p align="middle">
   <img src="assets/banner.png" width="99%" alt="My Workouts Banner" />
@@ -50,27 +45,23 @@
 
 ---
 
-<div align="center">
+<h2 align="center">📲 Download</h2>
 
-# 📲 Download
-
-Download the latest optimized APK directly from GitHub, or find the app on F-Droid!
-
-<br/>
-
-<a href="https://github.com/chathushkaimasara/My-Workouts/releases/latest">
-  <img alt="Get Latest Release" src="https://img.shields.io/badge/Get_Latest_Release-181717?style=for-the-badge&logo=github" height="50"/>
-</a>
-&nbsp;
-<a href="https://f-droid.org/">
-  <img alt="F-Droid" src="https://img.shields.io/badge/F--Droid-Coming_Soon-1976D2?style=for-the-badge&logo=f-droid&logoColor=white" height="50"/>
-</a>
-
-</div>
+<p align="center">
+  Download the latest optimized APK directly from GitHub, or find the app on F-Droid!
+  <br/><br/>
+  <a href="https://github.com/chathushkaimasara/My-Workouts/releases/latest">
+    <img alt="Get Latest Release" src="https://img.shields.io/badge/Get_Latest_Release-181717?style=for-the-badge&logo=github" height="50"/>
+  </a>
+  &nbsp;
+  <a href="https://f-droid.org/">
+    <img alt="F-Droid" src="https://img.shields.io/badge/F--Droid-Coming_Soon-1976D2?style=for-the-badge&logo=f-droid&logoColor=white" height="50"/>
+  </a>
+</p>
 
 ---
 
-# ✨ Key Features
+## ✨ Key Features
 
 * **Sleek UI/UX:** iOS-style frosted glass UI, system-adaptive light/dark mode, and custom animations.
 * **Smart Routine Builder:** Custom workout days (e.g., Push, Pull, Legs) with reorderable scheduling and custom background images.
@@ -80,7 +71,7 @@ Download the latest optimized APK directly from GitHub, or find the app on F-Dro
 
 ---
 
-# 📚 Tech Stack & Libraries
+## 📚 Tech Stack & Libraries
 
 * **[Flutter](https://flutter.dev/)** - Cross-platform UI framework.
 * **[Dart](https://dart.dev/)** - Core programming language.
@@ -89,7 +80,35 @@ Download the latest optimized APK directly from GitHub, or find the app on F-Dro
 
 ---
 
-# 💻 How to Run This Project
+<h2 align="center">☕ Support the Project</h2>
+
+<p align="center">
+  If you like this app and find it useful, please consider supporting its development! The easiest way is to leave a star on the repository, or you can buy me a coffee.
+  <br/><br/>
+  <a href="https://github.com/chathushkaimasara/My-Workouts/stargazers">
+    <img alt="Star Project" src="https://img.shields.io/badge/⭐_Star_This_Project-FFD700?style=for-the-badge&logo=github&logoColor=black" height="45"/>
+  </a>
+  &nbsp;
+  <a href="https://www.buymeacoffee.com/"> 
+    <img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" height="45"/>
+  </a>
+</p>
+
+<h3 align="center">⭐ Star History</h3>
+
+<p align="center">
+  <a href="https://www.star-history.com/?repos=chathushkaimasara/My-Workouts">
+   <picture>
+     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date&theme=dark" />
+     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
+     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
+   </picture>
+  </a>
+</p>
+
+---
+
+## 💻 How to Run This Project
 
 To get a local copy up and running, follow these simple steps.
 
@@ -129,27 +148,8 @@ flutter doctor
    flutter build apk --split-per-abi
    
    ```
-<div align="center">
-# ☕ Support the Project
-If you like this app and find it useful, please consider supporting its development! The easiest way is to leave a star on the repository, or you can buy me a coffee.
-<a href="https://github.com/chathushkaimasara/My-Workouts/stargazers">
-<img alt="Star Project" src="https://img.shields.io/badge/⭐_Star_This_Project-FFD700?style=for-the-badge&logo=github&logoColor=black" height="45"/>
-</a>
- 
-<a href="https://www.buymeacoffee.com/">
-<img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" height="45"/>
-</a>
-# ⭐ Star History
-<a href="https://www.star-history.com/?repos=chathushkaimasara/My-Workouts">
-<picture>
-<source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date&theme=dark" />
-<source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
-<img alt="Star History Chart" src="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
-</picture>
-</a>
-</div>
-# ⚖️ License
-
+## ⚖️ License
+```xml
 Designed and developed by 2026 Chathushka
 
     Licensed under the MIT License; you may not use this file except in compliance with the License.
@@ -163,8 +163,5 @@ Designed and developed by 2026 Chathushka
 
     Font Asset: 
     The RIVERA font used in this project is copyrighted by Shinko Art Studio and explicitly permitted for distribution and embedding within apps.
-
-```
-```
 
 ```
