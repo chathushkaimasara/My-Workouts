@@ -42,7 +42,6 @@
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-progress.png" width="24%" alt="Progress Charts" />
 </p>
 
-
 ---
 
 <h2 align="center">📲 Download</h2>
@@ -83,26 +82,14 @@
 <h2 align="center">☕ Support the Project</h2>
 
 <p align="center">
-  If you like this app and find it useful, please consider supporting its development! The easiest way is to leave a star on the repository, or you can buy me a coffee.
+  If you like this app and find it useful, please consider supporting its development! The easiest way is to leave a star on the repository, or you can support me on Ko-fi.
   <br/><br/>
   <a href="https://github.com/chathushkaimasara/My-Workouts/stargazers">
     <img alt="Star Project" src="https://img.shields.io/badge/⭐_Star_This_Project-FFD700?style=for-the-badge&logo=github&logoColor=black" height="45"/>
   </a>
   &nbsp;
-  <a href="https://www.buymeacoffee.com/"> 
-    <img alt="Buy Me A Coffee" src="https://img.shields.io/badge/Buy_Me_A_Coffee-FFDD00?style=for-the-badge&logo=buy-me-a-coffee&logoColor=black" height="45"/>
-  </a>
-</p>
-
-<h3 align="center">⭐ Star History</h3>
-
-<p align="center">
-  <a href="https://www.star-history.com/?repos=chathushkaimasara/My-Workouts">
-   <picture>
-     <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date&theme=dark" />
-     <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
-     <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=chathushkaimasara/My-Workouts&type=Date" />
-   </picture>
+  <a href="https://ko-fi.com/chathushkaimasara"> 
+    <img alt="Support me on Ko-fi" src="https://img.shields.io/badge/Support_me_on_Ko--fi-F16061?style=for-the-badge&logo=ko-fi&logoColor=white" height="45"/>
   </a>
 </p>
 
