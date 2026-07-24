@@ -181,47 +181,61 @@ class _WorkoutPageState extends State<WorkoutPage> {
     );
   }
 
-  void _showAddMenu(bool isDark, Color menuBg, Color textColor) {
-    final RenderBox renderBox = _plusButtonKey.currentContext!.findRenderObject() as RenderBox;
+   void _showAddMenu(bool isDark, Color menuBg, Color textColor) {
+    if (_addMenuOverlayEntry != null) {
+      _closeAddMenu();
+      return;
+    }
+
+    final RenderBox? renderBox = _plusButtonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (renderBox == null) return;
+    
     final position = renderBox.localToGlobal(Offset.zero);
 
-    showGeneralDialog(
-      context: context,
-      barrierColor: Colors.transparent,
-      barrierDismissible: true,
-      barrierLabel: "Dismiss",
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return Stack(
-          children: [
-            Positioned(
-              top: position.dy + 50,
-              right: 20,
-              child: TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.0, end: 1.0),
-                duration: const Duration(milliseconds: 350), 
-                curve: Curves.easeOutBack, 
-                builder: (context, value, child) {
-                  return Transform.scale(
-                    scale: value,
-                    alignment: Alignment.topRight, 
-                    child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
-                  );
-                },
-                child: Container(
-                  width: 200,
-                  decoration: BoxDecoration(
-                    color: menuBg, 
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05), width: 1),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.6 : 0.15), blurRadius: 20, offset: const Offset(0, 10))],
-                  ),
-                  child: Material(
-                    color: Colors.transparent,
+    _addMenuOverlayEntry = OverlayEntry(
+      builder: (context) {
+        return Material(
+          type: MaterialType.transparency,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.translucent,
+                  onTap: _closeAddMenu,
+                  onPanStart: (_) => _closeAddMenu(),
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+              Positioned(
+                top: position.dy + 50,
+                right: 20,
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 250), // Sped up for premium snappiness!
+                  curve: Curves.easeOutBack, 
+                  builder: (context, value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      alignment: Alignment.topRight, 
+                      child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
+                    );
+                  },
+                  child: Container(
+                    width: 200,
+                    decoration: BoxDecoration(
+                      color: menuBg, 
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05), width: 1),
+                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.6 : 0.15), blurRadius: 20, offset: const Offset(0, 10))],
+                    ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         InkWell(
-                          onTap: () { Navigator.pop(context); _showAddWorkoutDialog(context, isDark, isDark ? const Color(0xFF121212) : Colors.white, textColor); },
+                          onTap: () { 
+                            _closeAddMenu(); 
+                            _showAddWorkoutDialog(this.context, isDark, isDark ? const Color(0xFF121212) : Colors.white, textColor); 
+                          },
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -236,7 +250,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
                         ),
                         Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1), indent: 16, endIndent: 16),
                         InkWell(
-                          onTap: () { Navigator.pop(context); widget.appState.addDivider(widget.dayId); },
+                          onTap: () { 
+                            _closeAddMenu(); 
+                            widget.appState.addDivider(widget.dayId); 
+                          },
                           borderRadius: const BorderRadius.vertical(bottom: Radius.circular(16)),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -254,11 +271,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );
+    Overlay.of(this.context).insert(_addMenuOverlayEntry!);
   }
 
   @override
@@ -352,9 +370,13 @@ class _WorkoutPageState extends State<WorkoutPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               BouncingWidget(
-                                onTap: () => Navigator.pop(context),
-                                child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)),
-                              ),
+  onTap: () {
+    _closeAddMenu();
+    Navigator.pop(context);
+  },
+  child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)),
+),
+
                               SizedBox(
                                 width: 144, 
                                 height: 40,

@@ -24,6 +24,7 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ValueNotifier<String?> _selectedDayIdNotifier = ValueNotifier(null);
   OverlayEntry? _menuOverlayEntry; 
+  OverlayEntry? _addDayOverlayEntry; 
   Offset _menuPosition = Offset.zero;
   Offset? _globalPointerPosition; 
   
@@ -42,6 +43,7 @@ class _HomePageState extends State<HomePage> {
     _calendarScrollController.dispose();
     _selectedDayIdNotifier.dispose();
     _menuOverlayEntry?.remove();
+    _addDayOverlayEntry?.remove(); 
     super.dispose();
   }
 
@@ -163,45 +165,75 @@ class _HomePageState extends State<HomePage> {
     widget.appState.updateDayImage(day.id, null);
   }
 
+  void _closeAddDayDialog() {
+    if (_addDayOverlayEntry != null) {
+      _addDayOverlayEntry!.remove();
+      _addDayOverlayEntry = null;
+    }
+  }
+
   void _showAddDayDialog(BuildContext context, bool isDark, Color dialogBg, Color textColor) {
+    if (_addDayOverlayEntry != null) return;
+    
     TextEditingController nameController = TextEditingController();
-    showGeneralDialog(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
-      barrierDismissible: true,
-      barrierLabel: "Dismiss",
-      transitionDuration: const Duration(milliseconds: 350),
-      transitionBuilder: (context, animation, secondaryAnimation, child) {
-        return Transform.scale(
-          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack).value,
-          child: FadeTransition(opacity: animation, child: child),
-        );
-      },
-      pageBuilder: (context, animation, secondaryAnimation) {
-        return AlertDialog(
-          backgroundColor: dialogBg, 
-          surfaceTintColor: Colors.transparent,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: Text('New Workout Day', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-          content: _buildThemedTextField(controller: nameController, hint: 'e.g., Pull Day, Leg Day', textColor: textColor, isDark: isDark),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-            ),
-            TextButton(
-              onPressed: () {
-                if (nameController.text.trim().isNotEmpty) {
-                  widget.appState.addDay(nameController.text.trim());
-                }
-                Navigator.pop(context);
-              },
-              child: Text('Create', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-            ),
-          ],
+    
+    _addDayOverlayEntry = OverlayEntry(
+      builder: (context) {
+        return Material(
+          color: Colors.black.withOpacity(0.7), 
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: GestureDetector(
+                  onTap: _closeAddDayDialog,
+                  behavior: HitTestBehavior.opaque,
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+              Center(
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0.0, end: 1.0),
+                  duration: const Duration(milliseconds: 250),
+                  curve: Curves.easeOutBack,
+                  builder: (context, value, child) {
+                    return Transform.scale(
+                      scale: value,
+                      child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
+                    );
+                  },
+                  child: GestureDetector(
+                    onTap: () {}, 
+                    child: AlertDialog(
+                      backgroundColor: dialogBg, 
+                      surfaceTintColor: Colors.transparent,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                      title: Text('New Workout Day', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                      content: _buildThemedTextField(controller: nameController, hint: 'e.g., Pull Day, Leg Day', textColor: textColor, isDark: isDark),
+                      actions: [
+                        TextButton(
+                          onPressed: _closeAddDayDialog,
+                          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                        ),
+                        TextButton(
+                          onPressed: () {
+                            if (nameController.text.trim().isNotEmpty) {
+                              widget.appState.addDay(nameController.text.trim());
+                            }
+                            _closeAddDayDialog();
+                          },
+                          child: Text('Create', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
         );
       },
     );
+    Overlay.of(context).insert(_addDayOverlayEntry!);
   }
 
   void _showRenameDialog(BuildContext context, WorkoutDay day, bool isDark, Color dialogBg, Color textColor) {
@@ -284,9 +316,8 @@ class _HomePageState extends State<HomePage> {
         final Color dialogBg = isDark ? const Color(0xFF121212) : Colors.white;
         final Color frostedBg = isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6);
         final Color borderColor = isDark ? Colors.white24 : Colors.black12;
-        final Color cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white; 
 
-        bool hasProfileImage = widget.appState.profileImagePath != null && File(widget.appState.profileImagePath!).existsSync();
+        bool hasProfileImage = widget.appState.profileImagePath != null && widget.appState.profileImagePath!.isNotEmpty;
 
         final days = widget.appState.days;
         DateTime today = DateTime.now();
@@ -301,27 +332,38 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               BouncingWidget(
-                onTap: () {
-                  FocusManager.instance.primaryFocus?.unfocus();
-                  
-                  Future.delayed(const Duration(milliseconds: 150), () {
-                    if (!mounted) return;
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(builder: (context) => ProgressPage(appState: widget.appState)),
-                    );
-                  });
-                },
-                child: Container(
+                  onTap: () {
+    FocusManager.instance.primaryFocus?.unfocus();
+    // THE FIX: Removed the Future.delayed so the page pushes instantly!
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => ProgressPage(appState: widget.appState)),
+    );
+  },
+
+                                child: Container(
                   width: 50,
                   height: 50,
-                  decoration: BoxDecoration(
-                    color: cardColor, 
-                    borderRadius: BorderRadius.circular(16), 
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, offset: const Offset(0, 5))],
-                  ),
+                    decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(16),
+    color: isDark ? const Color(0xFF2C2C2E).withOpacity(0.9) : Colors.white.withOpacity(0.9),
+    // THE FIX: Added width: 0.5 and softened the opacity
+    border: Border.all(
+      color: isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08), 
+      width: 0.5
+    ),
+    boxShadow: [
+      BoxShadow(
+        color: Colors.black.withOpacity(isDark ? 0.4 : 0.15), 
+        blurRadius: 12, 
+        offset: const Offset(0, 4)
+      )
+    ],
+  ),
+
                   child: Icon(Icons.insert_chart_outlined, color: textColor, size: 24), 
                 ),
+
               ),
               const SizedBox(height: 15),
               BouncingWidget(
@@ -351,7 +393,6 @@ class _HomePageState extends State<HomePage> {
                       onPointerDown: (e) => _globalPointerPosition = e.position,
                       onPointerMove: (e) {
                         if (_globalPointerPosition != null && _selectedDayIdNotifier.value != null) {
-                          // The second your thumb drags the card, the menu politely vanishes
                           if ((e.position - _globalPointerPosition!).distance > 15) {
                             _closeMenu();
                           }
@@ -377,8 +418,6 @@ class _HomePageState extends State<HomePage> {
                             onReorderStart: (index) {
                               HapticFeedback.selectionClick();
                               
-                              // THE FIX: The exact moment Flutter lifts the card into the Drag Overlay, 
-                              // we wait 1 microsecond and pop the Menu Overlay back on top of it!
                               Future.microtask(() {
                                 if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
                                   _menuOverlayEntry!.remove();
@@ -474,7 +513,14 @@ class _HomePageState extends State<HomePage> {
                                     shape: BoxShape.circle,
                                     border: Border.all(color: borderColor, width: 1.5),
                                     image: hasProfileImage
-                                        ? DecorationImage(image: FileImage(File(widget.appState.profileImagePath!)), fit: BoxFit.cover)
+                                        ? DecorationImage(
+                                            // FIX: Applied ResizeImage to profile picture to prevent memory lag
+                                            image: ResizeImage(
+                                              FileImage(File(widget.appState.profileImagePath!)),
+                                              height: 150, 
+                                            ),
+                                            fit: BoxFit.cover
+                                          )
                                         : null,
                                   ),
                                   child: !hasProfileImage ? Icon(Icons.person, color: textColor, size: 24) : null,
@@ -539,39 +585,49 @@ class _HomePageState extends State<HomePage> {
                                         );
                                       },
                                       child: GestureDetector(
-                                        onTap: () => HapticFeedback.lightImpact(),
-                                        child: Container(
-                                          margin: const EdgeInsets.only(right: 12),
-                                          width: 60,
-                                          decoration: BoxDecoration(
-                                            color: isToday ? primaryColor : (isDark ? const Color(0xFF1C1C1E) : Colors.white),
-                                            borderRadius: BorderRadius.circular(18),
-                                            boxShadow: !isDark ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
-                                          ),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                _getDayName(date.weekday),
-                                                style: TextStyle(
-                                                  color: isToday ? invertedColor : Colors.grey, 
-                                                  fontSize: 13, 
-                                                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '${date.day}',
-                                                style: TextStyle(
-                                                  color: isToday ? invertedColor : textColor, 
-                                                  fontSize: 18, 
-                                                  fontWeight: FontWeight.bold
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+  onTap: () => HapticFeedback.lightImpact(),
+  child: Container(
+    margin: const EdgeInsets.only(right: 12),
+    width: 60,
+      decoration: BoxDecoration(
+    borderRadius: BorderRadius.circular(18),
+    color: isToday 
+      ? primaryColor 
+      : (isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05)),
+    // THE FIX: Added width: 0.5 for a clean hairline separator
+    border: isToday 
+      ? null 
+      : Border.all(
+          color: isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08), 
+          width: 0.5
+        ),
+    boxShadow: !isDark && !isToday ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)] : [],
+  ),
+
+    child: Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Text(
+          _getDayName(date.weekday),
+          style: TextStyle(
+            color: isToday ? invertedColor : Colors.grey, 
+            fontSize: 13, 
+            fontWeight: isToday ? FontWeight.bold : FontWeight.normal
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          '${date.day}',
+          style: TextStyle(
+            color: isToday ? invertedColor : textColor, 
+            fontSize: 18, 
+            fontWeight: FontWeight.bold
+          ),
+        ),
+      ],
+    ),
+  ),
+),
                                     );
                                   },
                                 ),
@@ -631,7 +687,6 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
   @override
   void initState() {
     super.initState();
-    // FIX: Removed the heavy setState listener here!
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
     widget.selectedIdNotifier.addListener(_onSelectionChanged); 
   }
@@ -697,7 +752,7 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
     bool isSelected = widget.selectedIdNotifier.value == widget.day.id;
     double baseScale = _isPressed ? 0.95 : (isSelected ? 1.03 : 1.0);
 
-    bool hasImage = widget.day.imagePath != null && File(widget.day.imagePath!).existsSync();
+    bool hasImage = widget.day.imagePath != null && widget.day.imagePath!.isNotEmpty;
     Color cardColor = widget.isDark ? const Color(0xFF141414) : Colors.white;
     Color displayTextColor = hasImage ? Colors.white : widget.textColor; 
 
@@ -712,7 +767,6 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
             onPointerUp: _handlePointerUp,
             onPointerCancel: _handlePointerCancel,
             behavior: HitTestBehavior.opaque,
-            // FIX: Replaced manual Transform.scale with GPU-optimized ScaleTransition
             child: ScaleTransition(
               scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
               child: AnimatedScale(
@@ -727,7 +781,10 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
                     boxShadow: !widget.isDark ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
                     image: hasImage
                         ? DecorationImage(
-                            image: FileImage(File(widget.day.imagePath!)),
+                            image: ResizeImage(
+                              FileImage(File(widget.day.imagePath!)),
+                              height: 400,
+                            ),
                             fit: BoxFit.cover,
                             colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
                           )
@@ -741,7 +798,6 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
                           mainAxisAlignment: MainAxisAlignment.end,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // FIX: Updated text widget to allow up to 3 lines without ellipsis
                             Text(
                               widget.day.name,
                               maxLines: 3, 
