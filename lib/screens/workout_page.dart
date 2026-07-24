@@ -20,11 +20,26 @@ class _WorkoutPageState extends State<WorkoutPage> {
   String? _selectedWorkoutId;
   Offset _menuPosition = Offset.zero;
   final GlobalKey _plusButtonKey = GlobalKey();
+  OverlayEntry? _addMenuOverlayEntry;
+
+  @override
+  void dispose() {
+    _addMenuOverlayEntry?.remove();
+    super.dispose();
+  }
+
+  void _closeAddMenu() {
+    if (_addMenuOverlayEntry != null) {
+      _addMenuOverlayEntry!.remove();
+      _addMenuOverlayEntry = null;
+    }
+  }
 
   void _closeMenu() {
     if (_selectedWorkoutId != null) {
       setState(() => _selectedWorkoutId = null);
     }
+    _closeAddMenu(); // Ensures tapping anywhere else closes the plus menu too!
   }
 
   void _openMenu(String id, Offset position) {
@@ -248,12 +263,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
 
   @override
   Widget build(BuildContext context) {
-    // ListenableBuilder ensures WorkoutPage immediately switches theme when changed
     return ListenableBuilder(
       listenable: widget.appState,
       builder: (context, child) {
         
-        // --- DYNAMIC LIGHT / DARK THEME VARIABLES ---
         final bool isDark = widget.appState.isDarkMode;
         final Color bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
         final Color textColor = isDark ? Colors.white : Colors.black;
@@ -264,7 +277,10 @@ class _WorkoutPageState extends State<WorkoutPage> {
         final day = widget.appState.days.firstWhere((d) => d.id == widget.dayId, orElse: () => WorkoutDay(id: '', name: 'Error', workouts: []));
         final bool hasCompleted = widget.appState.hasCompletedWorkouts(widget.dayId);
         
-        final topPadding = MediaQuery.of(context).padding.top + 160.0;
+        // FIX: Dynamic padding based on string length to accommodate wrapped text
+        final int titleLength = day.name.length;
+        final double extraPadding = titleLength > 30 ? 80.0 : (titleLength > 15 ? 40.0 : 0.0);
+        final topPadding = MediaQuery.of(context).padding.top + 160.0 + extraPadding;
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -383,7 +399,19 @@ class _WorkoutPageState extends State<WorkoutPage> {
                             ],
                           ),
                           const SizedBox(height: 25),
-                          Text(day.name, style: TextStyle(color: textColor, fontSize: 34, fontWeight: FontWeight.bold)),
+                          
+                          // FIX: Added maxLines and line height to handle text wrapping properly
+                          Text(
+                            day.name, 
+                            maxLines: 3, 
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: textColor, 
+                              fontSize: 34, 
+                              fontWeight: FontWeight.bold,
+                              height: 1.15, 
+                            ),
+                          ),
                         ],
                       ),
                     ),
@@ -455,7 +483,8 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..addListener(() => setState(() {}));
+    // FIX: Removed the heavy setState listener here to prevent blur rebuilds
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
   }
 
   @override
@@ -519,7 +548,6 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
     final screenWidth = MediaQuery.of(context).size.width;
 
     double baseScale = _isPressed ? 0.96 : (widget.isSelected ? 1.04 : 1.0);
-    double pulseScale = widget.isSelected ? 1.0 + (_pulseController.value * 0.02) : 1.0;
 
     return RepaintBoundary(
       child: ReorderableDelayedDragStartListener(
@@ -534,8 +562,9 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
             scale: baseScale,
             duration: const Duration(milliseconds: 350), 
             curve: Curves.easeOutBack,
-            child: Transform.scale(
-              scale: pulseScale,
+            // FIX: Replaced manual math Transform with GPU-optimized ScaleTransition
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
               alignment: Alignment.center,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 20.0, horizontal: 5.0),

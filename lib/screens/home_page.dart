@@ -631,7 +631,8 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
   @override
   void initState() {
     super.initState();
-    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700))..addListener(() => setState(() {}));
+    // FIX: Removed the heavy setState listener here!
+    _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
     widget.selectedIdNotifier.addListener(_onSelectionChanged); 
   }
 
@@ -695,7 +696,6 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
   Widget build(BuildContext context) {
     bool isSelected = widget.selectedIdNotifier.value == widget.day.id;
     double baseScale = _isPressed ? 0.95 : (isSelected ? 1.03 : 1.0);
-    double pulseScale = isSelected ? 1.0 + (_pulseController.value * 0.02) : 1.0;
 
     bool hasImage = widget.day.imagePath != null && File(widget.day.imagePath!).existsSync();
     Color cardColor = widget.isDark ? const Color(0xFF141414) : Colors.white;
@@ -712,13 +712,13 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
             onPointerUp: _handlePointerUp,
             onPointerCancel: _handlePointerCancel,
             behavior: HitTestBehavior.opaque,
-            child: AnimatedScale(
-              scale: baseScale,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutBack,
-              child: Transform.scale(
-                scale: pulseScale,
-                alignment: Alignment.center,
+            // FIX: Replaced manual Transform.scale with GPU-optimized ScaleTransition
+            child: ScaleTransition(
+              scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
+              child: AnimatedScale(
+                scale: baseScale,
+                duration: const Duration(milliseconds: 350),
+                curve: Curves.easeOutBack,
                 child: Container(
                   height: 180, 
                   decoration: BoxDecoration(
@@ -741,11 +741,16 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
                           mainAxisAlignment: MainAxisAlignment.end,
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            // FIX: Updated text widget to allow up to 3 lines without ellipsis
                             Text(
                               widget.day.name,
-                              style: TextStyle(color: displayTextColor, fontSize: 26, fontWeight: FontWeight.bold),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              maxLines: 3, 
+                              style: TextStyle(
+                                color: displayTextColor, 
+                                fontSize: 22, 
+                                fontWeight: FontWeight.bold,
+                                height: 1.15, 
+                              ),
                             ),
                           ],
                         ),
