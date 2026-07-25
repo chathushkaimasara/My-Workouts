@@ -115,3 +115,54 @@ Make sure you have the Flutter SDK installed on your machine.
 Run the following command to verify your setup:
 ```bash
 flutter doctor
+
+```
+### Installation & Build
+ 1. **Clone the repository:**
+```bash
+git clone [https://github.com/chathushkaimasara/My-Workouts.git](https://github.com/chathushkaimasara/My-Workouts.git)
+
+
+```
+ 2. **Navigate to the project directory:**
+```bash
+cd My-Workouts
+
+
+```
+ 3. **Fetch dependencies:**
+```bash
+flutter pub get
+
+
+```
+ 4. **Run the app on a connected device or emulator:**
+```bash
+flutter run
+
+
+```
+ 5. **(Optional) Build optimized APKs for release:**
+```bash
+flutter build apk --split-per-abi
+
+
+```
+## ⚖️ License
+```
+Designed and developed by 2026 Chathushka
+
+    Licensed under the MIT License; you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)
+
+    Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and limitations under the License.
+
+    Font Asset: 
+    The RIVERA font used in this project is copyrighted by Shinko Art Studio and explicitly permitted for distribution and embedding within apps.
+
+
+```
