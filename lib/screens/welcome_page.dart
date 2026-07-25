@@ -61,12 +61,10 @@ class _WelcomePageState extends State<WelcomePage> {
       widget.appState.updateUserName(_nameController.text.trim());
     }
 
-    // THE FIX: Trigger the fast fade-out
     setState(() {
       _isFinishing = true;
     });
 
-    // THE FIX: Snappy 300ms delay, then straight into the Home Page without the dumbbell
     Future.delayed(const Duration(milliseconds: 300), () {
       if (!mounted) return;
       
@@ -75,7 +73,7 @@ class _WelcomePageState extends State<WelcomePage> {
       Navigator.pushReplacement(
         context,
         PageRouteBuilder(
-          transitionDuration: const Duration(milliseconds: 500), // Sped up transition
+          transitionDuration: const Duration(milliseconds: 500), 
           pageBuilder: (context, animation, secondaryAnimation) => HomePage(appState: widget.appState),
           transitionsBuilder: (context, animation, secondaryAnimation, child) {
             return FadeTransition(
@@ -135,7 +133,6 @@ class _WelcomePageState extends State<WelcomePage> {
       backgroundColor: Colors.black,
       body: Stack(
         children: [
-          // ALL UI ELEMENTS (Fades out flawlessly when finishing)
           AnimatedOpacity(
             opacity: _isFinishing ? 0.0 : 1.0,
             duration: const Duration(milliseconds: 300),
@@ -147,7 +144,8 @@ class _WelcomePageState extends State<WelcomePage> {
                   onPageChanged: (index) => setState(() => _currentPage = index),
                   children: [
                     _buildPageContent(
-                      imagePath: 'assets/welcome_bg.png',
+                      // THE FIX: Changed to .webp
+                      imagePath: 'assets/welcome_bg.webp',
                       content: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -159,7 +157,8 @@ class _WelcomePageState extends State<WelcomePage> {
                       ),
                     ),
                     _buildPageContent(
-                      imagePath: 'assets/onboard2.png',
+                      // THE FIX: Changed to .webp
+                      imagePath: 'assets/onboard2.webp',
                       content: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -171,7 +170,8 @@ class _WelcomePageState extends State<WelcomePage> {
                       ),
                     ),
                     _buildPageContent(
-                      imagePath: 'assets/onboard3.png',
+                      // THE FIX: Changed to .webp
+                      imagePath: 'assets/onboard3.webp',
                       content: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +183,8 @@ class _WelcomePageState extends State<WelcomePage> {
                       ),
                     ),
                     _buildPageContent(
-                      imagePath: 'assets/onboard4.png',
+                      // THE FIX: Changed to .webp
+                      imagePath: 'assets/onboard4.webp',
                       content: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +196,8 @@ class _WelcomePageState extends State<WelcomePage> {
                       ),
                     ),
                     _buildPageContent(
-                      imagePath: 'assets/onboard5.png',
+                      // THE FIX: Changed to .webp
+                      imagePath: 'assets/onboard5.webp',
                       isCenter: true,
                       content: Column(
                         mainAxisSize: MainAxisSize.min,
@@ -214,8 +216,9 @@ class _WelcomePageState extends State<WelcomePage> {
                                 CircleAvatar(
                                   radius: 60,
                                   backgroundColor: Colors.white.withOpacity(0.1),
+                                  // THE FIX: ResizeImage prevents memory leak when loading large camera/gallery photos
                                   backgroundImage: widget.appState.profileImagePath != null && File(widget.appState.profileImagePath!).existsSync() 
-                                      ? FileImage(File(widget.appState.profileImagePath!)) 
+                                      ? ResizeImage(FileImage(File(widget.appState.profileImagePath!)), width: 250) 
                                       : null,
                                   child: widget.appState.profileImagePath == null 
                                       ? const Icon(Icons.person, color: Colors.white54, size: 60) 
@@ -307,7 +310,8 @@ class _WelcomePageState extends State<WelcomePage> {
   Widget _buildPageContent({required String imagePath, required Widget content, bool isCenter = false}) {
     return Stack(
       children: [
-        Positioned.fill(child: Image.asset(imagePath, fit: BoxFit.cover)),
+        // THE FIX: Added cacheHeight to prevent large resolution background images from consuming huge amounts of RAM!
+        Positioned.fill(child: Image.asset(imagePath, fit: BoxFit.cover, cacheHeight: 1400)),
         _buildDarkGradient(),
         SafeArea(
           child: Padding(
@@ -357,7 +361,6 @@ class _WelcomePageState extends State<WelcomePage> {
     );
   }
 
-  // THE FIX: Cleaned up the '>>' text
   Widget _buildNavPill({required Key key, required String text, required bool isLast}) {
     return Row(
       key: key,

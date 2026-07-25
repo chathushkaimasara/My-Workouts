@@ -24,6 +24,9 @@
   <a href="https://github.com/chathushkaimasara/My-Workouts/stargazers">
     <img src="https://img.shields.io/github/stars/chathushkaimasara/My-Workouts?color=ffff00&style=for-the-badge&logo=github" alt="Stars"/>
   </a>
+  <a href="https://t.me/myworkoutsapp">
+    <img src="https://img.shields.io/badge/Telegram-Join_Community-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" alt="Telegram"/>
+  </a>
 </p>
 
 ---
@@ -35,7 +38,7 @@
 </p>
 
 <p align="middle">
-  <img src="assets/banner.png" width="99%" alt="My Workouts Banner" />
+  <img src="assets/banner.webp" width="99%" alt="My Workouts Banner" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.png" width="24%" alt="Welcome Screen" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.png" width="24%" alt="Home Schedule" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.png" width="24%" alt="Workout Logging" />
@@ -63,6 +66,7 @@
 ## ✨ Key Features
 
 * **Sleek UI/UX:** iOS-style frosted glass UI, system-adaptive light/dark mode, and custom animations.
+* **Material You & Custom Themes:** Seamlessly adapts to your device's system wallpaper colors (Material You), or lets you personalize the app using curated presets and a precision hex color picker.
 * **Smart Routine Builder:** Custom workout days (e.g., Push, Pull, Legs) with reorderable scheduling and custom background images.
 * **On-The-Fly Logging:** Log sets, reps, and warmups in real-time with instant completion checkmarks.
 * **Progress Tracking:** Automatically visualizes personal records over time using built-in line charts.
@@ -79,13 +83,17 @@
 
 ---
 
-<h2 align="center">☕ Support the Project</h2>
+<h2 align="center">☕ Support & Community</h2>
 
 <p align="center">
-  If you like this app and find it useful, please consider supporting its development! The easiest way is to leave a star on the repository, or you can support me on Ko-fi.
+  If you like this app and find it useful, please consider supporting its development! Leave a star on the repository, join our community, or support me on Ko-fi.
   <br/><br/>
   <a href="https://github.com/chathushkaimasara/My-Workouts/stargazers">
     <img alt="Star Project" src="https://img.shields.io/badge/⭐_Star_This_Project-FFD700?style=for-the-badge&logo=github&logoColor=black" height="45"/>
+  </a>
+  &nbsp;
+  <a href="https://t.me/myworkoutsapp">
+    <img alt="Join Telegram" src="https://img.shields.io/badge/Join_Telegram-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white" height="45"/>
   </a>
   &nbsp;
   <a href="https://ko-fi.com/chathushkaimasara"> 
@@ -107,48 +115,3 @@ Make sure you have the Flutter SDK installed on your machine.
 Run the following command to verify your setup:
 ```bash
 flutter doctor
-
-```
-### Installation & Build
- 1. **Clone the repository:**
-   ```bash
-   git clone [https://github.com/chathushkaimasara/My-Workouts.git](https://github.com/chathushkaimasara/My-Workouts.git)
-   
-   ```
- 2. **Navigate to the project directory:**
-   ```bash
-   cd My-Workouts
-   
-   ```
- 3. **Fetch dependencies:**
-   ```bash
-   flutter pub get
-   
-   ```
- 4. **Run the app on a connected device or emulator:**
-   ```bash
-   flutter run
-   
-   ```
- 5. **(Optional) Build optimized APKs for release:**
-   ```bash
-   flutter build apk --split-per-abi
-   
-   ```
-## ⚖️ License
-```
-Designed and developed by 2026 Chathushka
-
-    Licensed under the MIT License; you may not use this file except in compliance with the License.
-    You may obtain a copy of the License at
-
-    [https://opensource.org/licenses/MIT](https://opensource.org/licenses/MIT)
-
-    Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
-    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-    See the License for the specific language governing permissions and limitations under the License.
-
-    Font Asset: 
-    The RIVERA font used in this project is copyrighted by Shinko Art Studio and explicitly permitted for distribution and embedding within apps.
-
-```
