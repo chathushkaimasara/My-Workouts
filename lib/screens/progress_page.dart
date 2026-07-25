@@ -19,7 +19,10 @@ class _ProgressPageState extends State<ProgressPage> {
 
   final ValueNotifier<String?> _selectedFilterNotifier = ValueNotifier(null); 
   final ValueNotifier<bool> _pageReadyNotifier = ValueNotifier(false); 
-  OverlayEntry? _addWeightOverlayEntry; // THE FIX: Dialog overlay for 0ms lag
+  
+  OverlayEntry? _addWeightOverlayEntry; 
+  // THE FIX: Extracted to a class variable so it can be properly disposed of to stop memory leaks!
+  TextEditingController? _weightController; 
 
   @override
   void initState() {
@@ -34,21 +37,25 @@ class _ProgressPageState extends State<ProgressPage> {
     _selectedFilterNotifier.dispose();
     _pageReadyNotifier.dispose(); 
     _addWeightOverlayEntry?.remove();
+    _weightController?.dispose(); 
     super.dispose();
   }
 
-  // THE FIX: Instant OverlayEntry dialog instead of a heavy Navigator route
   void _closeAddWeightDialog() {
     if (_addWeightOverlayEntry != null) {
       _addWeightOverlayEntry!.remove();
       _addWeightOverlayEntry = null;
+      // Memory Leak Fix: Destroy the text controller when the overlay closes
+      _weightController?.dispose();
+      _weightController = null;
     }
   }
 
-  void _showAddWeightDialog(BuildContext context, String exerciseName, bool isDark, Color dialogBg, Color textColor) {
+  void _showAddWeightDialog(BuildContext context, String exerciseName) {
     if (_addWeightOverlayEntry != null) return;
     
-    TextEditingController weightController = TextEditingController();
+    // Safely initialize the controller for this specific instance
+    _weightController = TextEditingController();
 
     _addWeightOverlayEntry = OverlayEntry(
       builder: (context) {
@@ -79,6 +86,16 @@ class _ProgressPageState extends State<ProgressPage> {
                     child: ListenableBuilder(
                       listenable: widget.appState,
                       builder: (context, child) {
+                        final bool isDark = widget.appState.isDarkMode;
+                        final bool useMaterialYou = widget.appState.useMaterialYou;
+                        final ColorScheme scheme = Theme.of(this.context).colorScheme;
+
+                        // MATERIAL YOU ADAPTATION FOR DIALOG
+                        final Color dialogBg = useMaterialYou ? scheme.surfaceContainerHigh : (isDark ? const Color(0xFF121212) : Colors.white);
+                        final Color textColor = useMaterialYou ? scheme.onSurface : (isDark ? Colors.white : Colors.black);
+                        final Color hintColor = useMaterialYou ? scheme.onSurfaceVariant : Colors.grey;
+                        final Color underlineColor = useMaterialYou ? scheme.outline : Colors.grey.shade600;
+
                         final bool isKg = widget.appState.isKg;
                         final String currentUnit = isKg ? "kg" : "lbs";
 
@@ -91,7 +108,7 @@ class _ProgressPageState extends State<ProgressPage> {
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               TextField(
-                                controller: weightController,
+                                controller: _weightController,
                                 style: TextStyle(color: textColor),
                                 cursorColor: textColor,
                                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
@@ -102,24 +119,25 @@ class _ProgressPageState extends State<ProgressPage> {
                                 decoration: InputDecoration(
                                   hintText: isKg ? 'e.g., 100' : 'e.g., 225',
                                   suffixText: currentUnit,
-                                  hintStyle: const TextStyle(color: Colors.grey),
-                                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade600)),
+                                  suffixStyle: TextStyle(color: textColor),
+                                  hintStyle: TextStyle(color: hintColor),
+                                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: underlineColor)),
                                   focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor)),
                                 ),
                               ),
                               const SizedBox(height: 30),
-                              _buildUnitToggle(isDark, isKg),
+                              _buildUnitToggle(isDark, isKg, useMaterialYou, scheme),
                             ],
                           ),
                           actions: [
                             TextButton(
                               onPressed: _closeAddWeightDialog,
-                              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+                              child: Text('Cancel', style: TextStyle(color: hintColor)),
                             ),
                             TextButton(
                               onPressed: () {
-                                if (weightController.text.trim().isNotEmpty) {
-                                  double? weight = double.tryParse(weightController.text.trim());
+                                if (_weightController != null && _weightController!.text.trim().isNotEmpty) {
+                                  double? weight = double.tryParse(_weightController!.text.trim());
                                   if (weight != null) {
                                     widget.appState.addWeightRecord(exerciseName, weight);
                                   }
@@ -143,7 +161,12 @@ class _ProgressPageState extends State<ProgressPage> {
     Overlay.of(context).insert(_addWeightOverlayEntry!);
   }
 
-  Widget _buildUnitToggle(bool isDark, bool isKg) {
+  Widget _buildUnitToggle(bool isDark, bool isKg, bool useMaterialYou, ColorScheme scheme) {
+    final Color bg = useMaterialYou ? scheme.surfaceContainerHighest : (isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200);
+    final Color thumbBg = useMaterialYou ? scheme.primary : (isDark ? const Color(0xFF48484A) : Colors.white);
+    final Color activeText = useMaterialYou ? scheme.onPrimary : (isDark ? Colors.white : Colors.black);
+    final Color inactiveText = useMaterialYou ? scheme.onSurfaceVariant : Colors.grey;
+
     return GestureDetector(
       onTap: () {
         HapticFeedback.lightImpact();
@@ -153,7 +176,7 @@ class _ProgressPageState extends State<ProgressPage> {
         width: 130,
         height: 40,
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200,
+          color: bg,
           borderRadius: BorderRadius.circular(20),
         ),
         child: Stack(
@@ -167,7 +190,7 @@ class _ProgressPageState extends State<ProgressPage> {
               child: Container(
                 width: 63,
                 decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF48484A) : Colors.white,
+                  color: thumbBg,
                   borderRadius: BorderRadius.circular(18),
                   boxShadow: [
                     BoxShadow(
@@ -188,7 +211,7 @@ class _ProgressPageState extends State<ProgressPage> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: !isKg ? (isDark ? Colors.white : Colors.black) : Colors.grey,
+                        color: !isKg ? activeText : inactiveText,
                       ),
                     ),
                   ),
@@ -200,7 +223,7 @@ class _ProgressPageState extends State<ProgressPage> {
                       style: TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
-                        color: isKg ? (isDark ? Colors.white : Colors.black) : Colors.grey,
+                        color: isKg ? activeText : inactiveText,
                       ),
                     ),
                   ),
@@ -219,16 +242,24 @@ class _ProgressPageState extends State<ProgressPage> {
       listenable: widget.appState,
       builder: (context, child) {
         
-        final bool isDark = widget.appState.isDarkMode;
-        final String unit = widget.appState.isKg ? "kg" : "lbs"; 
-        
-        final Color bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
-        final Color textColor = isDark ? Colors.white : Colors.black;
-        final Color cardColor = isDark ? const Color(0xFF141414) : Colors.white;
-        final Color dialogBg = isDark ? const Color(0xFF121212) : Colors.white;
-        final Color primaryColor = isDark ? Colors.white : Colors.black;
-        final Color invertedColor = isDark ? Colors.black : Colors.white;
-        final Color frostedBg = isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6);
+final bool isDark = widget.appState.isDarkMode;
+final bool useMaterialYou = widget.appState.useMaterialYou;
+final ColorScheme scheme = Theme.of(context).colorScheme;
+final String unit = widget.appState.isKg ? "kg" : "lbs"; 
+
+// THE FIX: Uses the new string ID to check if it should use the default premium aesthetic
+final bool isPremiumBlack = !useMaterialYou && widget.appState.themePresetId == 'default_black';
+
+final Color bgColor = isPremiumBlack ? (isDark ? Colors.black : const Color(0xFFF2F2F7)) : scheme.surface;
+final Color textColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.onSurface;
+final Color cardColor = isPremiumBlack ? (isDark ? const Color(0xFF141414) : Colors.white) : scheme.surfaceContainer;
+final Color primaryColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary;
+final Color invertedColor = isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary;
+final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6)) : scheme.surface.withOpacity(0.6);
+final Color btnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200) : scheme.surfaceContainerHigh;
+
+final Color unselectedChipBg = isPremiumBlack ? (isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05)) : scheme.surfaceContainerLow;
+final Color chipBorderColor = isPremiumBlack ? (isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)) : scheme.outlineVariant.withOpacity(0.5);
 
         final double topPadding = MediaQuery.of(context).padding.top + 160.0;
 
@@ -250,7 +281,7 @@ class _ProgressPageState extends State<ProgressPage> {
                             alignment: Alignment.topCenter,
                             child: Text(
                               selectedFilter == null ? 'Add exercises to your schedule first' : 'No exercises in this workout', 
-                              style: TextStyle(color: Colors.grey.shade600)
+                              style: TextStyle(color: useMaterialYou ? scheme.onSurfaceVariant : Colors.grey.shade600)
                             ),
                           ),
                         );
@@ -271,7 +302,7 @@ class _ProgressPageState extends State<ProgressPage> {
                               return TweenAnimationBuilder<double>(
                                 key: ValueKey('${selectedFilter}_$name'), 
                                 tween: Tween(begin: 0.0, end: isReady ? 1.0 : 0.0), 
-                                duration: Duration(milliseconds: 300 + (index * 40).clamp(0, 300)), // Speed optimized
+                                duration: Duration(milliseconds: 300 + (index * 40).clamp(0, 300)), 
                                 curve: Curves.easeOutCubic,
                                 builder: (context, value, child) {
                                   return Transform.translate(
@@ -287,7 +318,7 @@ class _ProgressPageState extends State<ProgressPage> {
                                   decoration: BoxDecoration(
                                     color: cardColor,
                                     borderRadius: BorderRadius.circular(20),
-                                    boxShadow: !isDark ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
+                                    boxShadow: !isDark && !useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
                                   ),
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
@@ -300,17 +331,17 @@ class _ProgressPageState extends State<ProgressPage> {
                                             children: [
                                               Text(name, style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold), maxLines: 1, overflow: TextOverflow.ellipsis),
                                               const SizedBox(height: 4),
-                                              Text('Highest: $displayWeight', style: TextStyle(color: Colors.grey.shade500, fontSize: 14)),
+                                              Text('Highest: $displayWeight', style: TextStyle(color: useMaterialYou ? scheme.onSurfaceVariant : Colors.grey.shade500, fontSize: 14)),
                                             ],
                                           ),
                                         ),
                                         Row(
                                           children: [
                                             BouncingWidget(
-                                              onTap: () => _showAddWeightDialog(context, name, isDark, dialogBg, textColor),
+                                              onTap: () => _showAddWeightDialog(context, name),
                                               child: CircleAvatar(
                                                 radius: 20,
-                                                backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200,
+                                                backgroundColor: btnBg,
                                                 child: Icon(Icons.add, color: textColor, size: 20),
                                               ),
                                             ),
@@ -333,8 +364,8 @@ class _ProgressPageState extends State<ProgressPage> {
                                               },
                                               child: CircleAvatar(
                                                 radius: 20,
-                                                backgroundColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade200,
-                                                child: Icon(Icons.show_chart, color: records.isNotEmpty ? textColor : Colors.grey, size: 20),
+                                                backgroundColor: btnBg,
+                                                child: Icon(Icons.show_chart, color: records.isNotEmpty ? textColor : (useMaterialYou ? scheme.outline : Colors.grey), size: 20),
                                               ),
                                             ),
                                           ],
@@ -377,7 +408,7 @@ class _ProgressPageState extends State<ProgressPage> {
                                 onTap: () => Navigator.pop(context),
                                 child: CircleAvatar(
                                   radius: 20, 
-                                  backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white, 
+                                  backgroundColor: useMaterialYou ? scheme.surfaceContainerHigh : (isDark ? const Color(0xFF1C1C1E) : Colors.white), 
                                   child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
                                 ),
                               ),
@@ -389,7 +420,6 @@ class _ProgressPageState extends State<ProgressPage> {
                           
                           SizedBox(
                             height: 40,
-                            // THE FIX: Isolated the list so it doesn't rebuild everything when scrolling
                             child: ListView(
                               scrollDirection: Axis.horizontal,
                               physics: const BouncingScrollPhysics(),
@@ -400,16 +430,22 @@ class _ProgressPageState extends State<ProgressPage> {
                                   dayId: null,
                                   selectedFilterNotifier: _selectedFilterNotifier,
                                   isDark: isDark,
+                                  useMaterialYou: useMaterialYou,
                                   primaryColor: primaryColor,
                                   invertedColor: invertedColor,
+                                  unselectedBg: unselectedChipBg,
+                                  borderColor: chipBorderColor,
                                 ),
                                 ...widget.appState.days.map((d) => _FilterChip(
                                   label: d.name,
                                   dayId: d.id,
                                   selectedFilterNotifier: _selectedFilterNotifier,
                                   isDark: isDark,
+                                  useMaterialYou: useMaterialYou,
                                   primaryColor: primaryColor,
                                   invertedColor: invertedColor,
+                                  unselectedBg: unselectedChipBg,
+                                  borderColor: chipBorderColor,
                                 )),
                               ],
                             ),
@@ -428,22 +464,27 @@ class _ProgressPageState extends State<ProgressPage> {
   }
 }
 
-// THE FIX: Extracted FilterChip to isolate its rebuilds, massively saving CPU
 class _FilterChip extends StatelessWidget {
   final String label;
   final String? dayId;
   final ValueNotifier<String?> selectedFilterNotifier;
   final bool isDark;
+  final bool useMaterialYou;
   final Color primaryColor;
   final Color invertedColor;
+  final Color unselectedBg;
+  final Color borderColor;
 
   const _FilterChip({
     required this.label,
     required this.dayId,
     required this.selectedFilterNotifier,
     required this.isDark,
+    required this.useMaterialYou,
     required this.primaryColor,
     required this.invertedColor,
+    required this.unselectedBg,
+    required this.borderColor,
   });
 
   @override
@@ -463,9 +504,10 @@ class _FilterChip extends StatelessWidget {
             margin: const EdgeInsets.only(right: 10),
             padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
             decoration: BoxDecoration(
-              color: isSelected ? primaryColor : (isDark ? const Color(0xFF1C1C1E) : Colors.white),
+              color: isSelected ? primaryColor : unselectedBg,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: !isDark && !isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8)] : [],
+              border: isSelected ? null : Border.all(color: borderColor, width: 0.5),
+              boxShadow: !isDark && !useMaterialYou && !isSelected ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)] : [],
             ),
             child: Center(
               child: AnimatedDefaultTextStyle(
@@ -506,7 +548,6 @@ class ChartPage extends StatefulWidget {
 class _ChartPageState extends State<ChartPage> {
   final ValueNotifier<bool> _animateChartNotifier = ValueNotifier(false);
 
-  // THE FIX: Chart data calculation moved to state variables so it only runs once!
   late double explicitMinY;
   late double explicitMaxY;
   late List<FlSpot> finalChartSpots;
@@ -521,7 +562,6 @@ class _ChartPageState extends State<ChartPage> {
     });
   }
 
-  // THE FIX: Calculates the 1200ms chart math once in memory, rather than 72 times a second
   void _calculateChartData() {
     double minWeight = widget.records.first.weight;
     double maxWeight = widget.records.first.weight;
@@ -564,10 +604,18 @@ class _ChartPageState extends State<ChartPage> {
       builder: (context, child) {
         
         final bool isDark = widget.appState.isDarkMode;
-        final Color bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
-        final Color textColor = isDark ? Colors.white : Colors.black;
-        final Color cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
-        final Color frostedBg = isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6);
+        final bool useMaterialYou = widget.appState.useMaterialYou;
+        final ColorScheme scheme = Theme.of(context).colorScheme;
+
+        // MATERIAL YOU ADAPTATION FOR CHART
+        final Color bgColor = useMaterialYou ? scheme.surface : (isDark ? Colors.black : const Color(0xFFF2F2F7));
+        final Color textColor = useMaterialYou ? scheme.onSurface : (isDark ? Colors.white : Colors.black);
+        final Color cardColor = useMaterialYou ? scheme.surfaceContainer : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
+        final Color frostedBg = useMaterialYou ? scheme.surface.withOpacity(0.6) : (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6));
+        
+        final Color chartLineColor = useMaterialYou ? scheme.primary : textColor;
+        final Color tooltipBgColor = useMaterialYou ? scheme.inverseSurface : (isDark ? Colors.white : Colors.black);
+        final Color tooltipTextColor = useMaterialYou ? scheme.onInverseSurface : (isDark ? Colors.black : Colors.white);
 
         final double topPadding = MediaQuery.of(context).padding.top + 90.0;
 
@@ -596,12 +644,12 @@ class _ChartPageState extends State<ChartPage> {
                         decoration: BoxDecoration(
                           color: cardColor,
                           borderRadius: BorderRadius.circular(24),
-                          boxShadow: !isDark ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
+                          boxShadow: !isDark && !useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Weight History', style: TextStyle(color: Colors.grey.shade500, fontSize: 16)),
+                            Text('Weight History', style: TextStyle(color: useMaterialYou ? scheme.onSurfaceVariant : Colors.grey.shade500, fontSize: 16)),
                             const SizedBox(height: 30),
                             SizedBox(
                               height: 300,
@@ -618,12 +666,12 @@ class _ChartPageState extends State<ChartPage> {
                                       borderData: FlBorderData(show: false),
                                       lineTouchData: LineTouchData(
                                         touchTooltipData: LineTouchTooltipData(
-                                          getTooltipColor: (touchedSpot) => isDark ? Colors.white : Colors.black,
+                                          getTooltipColor: (touchedSpot) => tooltipBgColor,
                                           getTooltipItems: (touchedSpots) {
                                             return touchedSpots.map((spot) {
                                               return LineTooltipItem(
                                                 '${spot.y} ${widget.unit}',
-                                                TextStyle(color: isDark ? Colors.black : Colors.white, fontWeight: FontWeight.bold),
+                                                TextStyle(color: tooltipTextColor, fontWeight: FontWeight.bold),
                                               );
                                             }).toList();
                                           },
@@ -633,21 +681,21 @@ class _ChartPageState extends State<ChartPage> {
                                         LineChartBarData(
                                           spots: animate ? finalChartSpots : startingSpots,
                                           isCurved: false, 
-                                          color: textColor, 
+                                          color: chartLineColor, 
                                           barWidth: 4,
                                           isStrokeCapRound: true,
                                           dotData: FlDotData(
                                             show: true,
                                             getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
                                               radius: 4,
-                                              color: textColor,
+                                              color: chartLineColor,
                                               strokeWidth: 2,
                                               strokeColor: cardColor,
                                             ),
                                           ),
                                           belowBarData: BarAreaData(
                                             show: true,
-                                            color: textColor.withOpacity(0.1), 
+                                            color: chartLineColor.withOpacity(0.1), 
                                           ),
                                         )
                                       ],
@@ -687,7 +735,7 @@ class _ChartPageState extends State<ChartPage> {
                             onTap: () => Navigator.pop(context),
                             child: CircleAvatar(
                               radius: 20, 
-                              backgroundColor: isDark ? const Color(0xFF1C1C1E) : Colors.white, 
+                              backgroundColor: useMaterialYou ? scheme.surfaceContainerHigh : (isDark ? const Color(0xFF1C1C1E) : Colors.white), 
                               child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
                             ),
                           ),

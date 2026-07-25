@@ -9,16 +9,49 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/workout_models.dart';
 
+// Structured class to hold multi-color themes
+class AppThemePreset {
+  final String id;
+  final String name;
+  final List<Color> colors; 
+
+  const AppThemePreset({required this.id, required this.name, required this.colors});
+}
+
+// THE PRESETS: 1-color, 2-color, and 3-color combinations!
+const List<AppThemePreset> appThemePresets = [
+  AppThemePreset(id: 'default_black', name: 'Premium Midnight', colors: [Colors.black, Colors.grey]),
+  AppThemePreset(id: 'blue_ocean', name: 'Deep Ocean', colors: [Color(0xFF007AFF), Color(0xFF00C6FF)]),
+  AppThemePreset(id: 'sunset', name: 'Sunset Glow', colors: [Color(0xFFFF512F), Color(0xFFDD2476)]),
+  AppThemePreset(id: 'cyberpunk', name: 'Cyberpunk Edge', colors: [Color(0xFF00F2FE), Color(0xFF4FACFE), Color(0xFFF093FB)]),
+  AppThemePreset(id: 'forest', name: 'Lush Forest', colors: [Color(0xFF11998E), Color(0xFF38EF7D)]),
+  AppThemePreset(id: 'lavender', name: 'Lavender Dream', colors: [Color(0xFFB224EF), Color(0xFF7579FF)]),
+  AppThemePreset(id: 'ember', name: 'Ember Flame', colors: [Color(0xFFFF416C), Color(0xFFFF4B2B), Color(0xFFFF9068)]),
+  AppThemePreset(id: 'neon_lime', name: 'Neon Lime', colors: [Color(0xFF00FF87), Color(0xFF60EFFF)]),
+  AppThemePreset(id: 'custom_color', name: 'Custom Theme', colors: [Colors.transparent]), 
+];
+
 class WorkoutState extends ChangeNotifier {
   List<WorkoutDay> days = [];
   bool isDarkMode = true; 
   bool isKg = false; 
-  
-  // NEW: Tracks if this is a brand new user
   bool isFirstLaunch = true; 
   
   String userName = "My Name";
   String? profileImagePath;
+
+  bool _useMaterialYou = false; 
+  bool get useMaterialYou => _useMaterialYou;
+
+  String _themePresetId = 'default_black'; 
+  String get themePresetId => _themePresetId;
+
+  Color _customThemeColor = const Color(0xFF6200EE); 
+  Color get customThemeColor => _customThemeColor;
+
+  // Stores the history of custom colors picked
+  List<int> _customColorHistory = [];
+  List<Color> get customColorHistory => _customColorHistory.map((v) => Color(v)).toList();
 
   Map<String, List<WeightRecord>> exerciseProgress = {};
 
@@ -26,7 +59,6 @@ class WorkoutState extends ChangeNotifier {
     loadData();
   }
 
-  // NEW: Triggers when the user successfully slides the button
   void completeFirstLaunch() {
     isFirstLaunch = false;
     _saveData();
@@ -57,9 +89,37 @@ class WorkoutState extends ChangeNotifier {
     _saveData();
   }
 
+  void toggleMaterialYou() {
+    _useMaterialYou = !_useMaterialYou;
+    _saveData();
+  }
+
+  void setThemePreset(String id) {
+    _themePresetId = id;
+    if (_useMaterialYou) {
+      _useMaterialYou = false; 
+    }
+    _saveData();
+  }
+
+  // Sets the specific color from the color wheel and updates history
+  void setCustomThemeColor(Color color) {
+    _customThemeColor = color;
+    _themePresetId = 'custom_color';
+    if (_useMaterialYou) _useMaterialYou = false;
+
+    // HISTORY LOGIC: Add to front, remove duplicates, keep max 8 colors
+    _customColorHistory.remove(color.value);
+    _customColorHistory.insert(0, color.value);
+    if (_customColorHistory.length > 8) {
+      _customColorHistory.removeLast();
+    }
+
+    _saveData();
+  }
+
   List<String> getUniqueExercises({String? dayId}) {
     Set<String> uniqueNames = {};
-    
     var daysToScan = dayId == null ? days : days.where((d) => d.id == dayId);
     
     for (var day in daysToScan) {
@@ -91,6 +151,10 @@ class WorkoutState extends ChangeNotifier {
         'isDarkMode': isDarkMode,
         'isKg': isKg, 
         'isFirstLaunch': isFirstLaunch,
+        'useMaterialYou': _useMaterialYou,
+        'themePresetId': _themePresetId, 
+        'customThemeColor': _customThemeColor.value,
+        'customColorHistory': _customColorHistory,
         'exerciseProgress': exerciseProgress.map((k, v) => MapEntry(k, v.map((e) => e.toJson()).toList())), 
       };
 
@@ -152,6 +216,21 @@ class WorkoutState extends ChangeNotifier {
         isDarkMode = backup['isDarkMode'] ?? true;
         isKg = backup['isKg'] ?? false; 
         isFirstLaunch = backup['isFirstLaunch'] ?? false;
+        _useMaterialYou = backup['useMaterialYou'] ?? false;
+        
+        if (backup['themePresetId'] != null && backup['themePresetId'] is String) {
+          _themePresetId = backup['themePresetId'];
+        } else {
+          _themePresetId = 'default_black';
+        }
+
+        if (backup['customThemeColor'] != null) {
+          _customThemeColor = Color(backup['customThemeColor']);
+        }
+
+        if (backup['customColorHistory'] != null) {
+          _customColorHistory = List<int>.from(backup['customColorHistory']);
+        }
 
         if (backup['exerciseProgress'] != null) {
           Map<String, dynamic> epMap = backup['exerciseProgress'];
@@ -286,10 +365,14 @@ class WorkoutState extends ChangeNotifier {
     notifyListeners();
     final prefs = await SharedPreferences.getInstance();
     
-    await prefs.setBool('is_first_launch', isFirstLaunch); // Saved here
+    await prefs.setBool('is_first_launch', isFirstLaunch);
     await prefs.setBool('is_dark_mode', isDarkMode);
     await prefs.setBool('is_kg', isKg); 
     await prefs.setString('user_name', userName);
+    await prefs.setBool('use_material_you', _useMaterialYou);
+    await prefs.setString('theme_preset', _themePresetId);
+    await prefs.setInt('custom_theme_color', _customThemeColor.value);
+    await prefs.setString('custom_color_history', jsonEncode(_customColorHistory)); 
     
     if (profileImagePath != null) {
       await prefs.setString('profile_image', profileImagePath!);
@@ -306,13 +389,23 @@ class WorkoutState extends ChangeNotifier {
   Future<void> loadData() async {
     final prefs = await SharedPreferences.getInstance();
     
-    // Defaults to true if no data exists (new install)
     isFirstLaunch = prefs.getBool('is_first_launch') ?? true; 
     isDarkMode = prefs.getBool('is_dark_mode') ?? true;
     isKg = prefs.getBool('is_kg') ?? false; 
     userName = prefs.getString('user_name') ?? "My Name";
     profileImagePath = prefs.getString('profile_image');
     
+    _useMaterialYou = prefs.getBool('use_material_you') ?? false;
+    _themePresetId = prefs.getString('theme_preset') ?? 'default_black';
+    
+    int? customColorVal = prefs.getInt('custom_theme_color');
+    _customThemeColor = customColorVal != null ? Color(customColorVal) : const Color(0xFF6200EE);
+
+    String? historyJson = prefs.getString('custom_color_history');
+    if (historyJson != null) {
+      _customColorHistory = List<int>.from(jsonDecode(historyJson));
+    }
+
     List<String>? jsonList = prefs.getStringList('workout_days');
     if (jsonList != null && jsonList.isNotEmpty) {
       days = jsonList.map((j) => WorkoutDay.fromJson(jsonDecode(j))).toList();

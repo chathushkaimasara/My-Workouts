@@ -67,10 +67,15 @@ class _HomePageState extends State<HomePage> {
     _menuOverlayEntry = OverlayEntry(
       builder: (context) {
         final d = widget.appState.days.firstWhere((day) => day.id == id, orElse: () => widget.appState.days.first);
-        bool hasImage = d.imagePath != null && File(d.imagePath!).existsSync();
+        
+        // OPTIMIZATION: In-memory string check prevents blocking main UI thread
+        bool hasImage = d.imagePath != null && d.imagePath!.isNotEmpty;
         final bool isDark = widget.appState.isDarkMode;
-        final Color textColor = isDark ? Colors.white : Colors.black;
-        final Color dialogBg = isDark ? const Color(0xFF121212) : Colors.white;
+        final bool useMaterialYou = widget.appState.useMaterialYou;
+        final ColorScheme scheme = Theme.of(context).colorScheme;
+
+        final Color textColor = useMaterialYou ? scheme.onSurface : (isDark ? Colors.white : Colors.black);
+        final Color dialogBg = useMaterialYou ? scheme.surfaceContainerHigh : (isDark ? const Color(0xFF121212) : Colors.white);
 
         return Material(
           type: MaterialType.transparency,
@@ -89,6 +94,7 @@ class _HomePageState extends State<HomePage> {
                 isPinned: d.isPinned,
                 hasImage: hasImage,
                 isDark: isDark,
+                useMaterialYou: useMaterialYou,
                 textColor: textColor,
                 onRename: () {
                   _closeMenu();
@@ -156,7 +162,7 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _editExistingImage(WorkoutDay day, bool isDark) {
-    if (day.imagePath != null && File(day.imagePath!).existsSync()) {
+    if (day.imagePath != null && day.imagePath!.isNotEmpty) {
       _cropImage(day, day.imagePath!, isDark);
     }
   }
@@ -308,14 +314,21 @@ class _HomePageState extends State<HomePage> {
       listenable: widget.appState,
       builder: (context, child) {
         
-        final bool isDark = widget.appState.isDarkMode;
-        final Color bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
-        final Color textColor = isDark ? Colors.white : Colors.black;
-        final Color primaryColor = isDark ? Colors.white : Colors.black;
-        final Color invertedColor = isDark ? Colors.black : Colors.white;
-        final Color dialogBg = isDark ? const Color(0xFF121212) : Colors.white;
-        final Color frostedBg = isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6);
-        final Color borderColor = isDark ? Colors.white24 : Colors.black12;
+final bool isDark = widget.appState.isDarkMode;
+final bool useMaterialYou = widget.appState.useMaterialYou;
+final ColorScheme scheme = Theme.of(context).colorScheme;
+
+// THE FIX: Uses the new string ID to check if it should use the default premium aesthetic
+final bool isPremiumBlack = !useMaterialYou && widget.appState.themePresetId == 'default_black';
+
+final Color bgColor = isPremiumBlack ? (isDark ? Colors.black : const Color(0xFFF2F2F7)) : scheme.surface;
+final Color textColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.onSurface;
+final Color primaryColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary;
+final Color invertedColor = isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary;
+final Color dialogBg = isPremiumBlack ? (isDark ? const Color(0xFF121212) : Colors.white) : scheme.surfaceContainerHigh;
+final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6)) : scheme.surface.withOpacity(0.6);
+final Color borderColor = isPremiumBlack ? (isDark ? Colors.white24 : Colors.black12) : scheme.outlineVariant;
+final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.9) : Colors.white.withOpacity(0.9)) : scheme.surfaceContainerHigh.withOpacity(0.9);
 
         bool hasProfileImage = widget.appState.profileImagePath != null && widget.appState.profileImagePath!.isNotEmpty;
 
@@ -332,38 +345,33 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
               BouncingWidget(
-                  onTap: () {
-    FocusManager.instance.primaryFocus?.unfocus();
-    // THE FIX: Removed the Future.delayed so the page pushes instantly!
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => ProgressPage(appState: widget.appState)),
-    );
-  },
-
-                                child: Container(
+                onTap: () {
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => ProgressPage(appState: widget.appState)),
+                  );
+                },
+                child: Container(
                   width: 50,
                   height: 50,
-                    decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(16),
-    color: isDark ? const Color(0xFF2C2C2E).withOpacity(0.9) : Colors.white.withOpacity(0.9),
-    // THE FIX: Added width: 0.5 and softened the opacity
-    border: Border.all(
-      color: isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08), 
-      width: 0.5
-    ),
-    boxShadow: [
-      BoxShadow(
-        color: Colors.black.withOpacity(isDark ? 0.4 : 0.15), 
-        blurRadius: 12, 
-        offset: const Offset(0, 4)
-      )
-    ],
-  ),
-
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    color: progressBtnBg,
+                    border: Border.all(
+                      color: useMaterialYou ? scheme.outline.withOpacity(0.2) : (isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)), 
+                      width: 0.5
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(isDark ? 0.4 : 0.15), 
+                        blurRadius: 12, 
+                        offset: const Offset(0, 4)
+                      )
+                    ],
+                  ),
                   child: Icon(Icons.insert_chart_outlined, color: textColor, size: 24), 
                 ),
-
               ),
               const SizedBox(height: 15),
               BouncingWidget(
@@ -437,6 +445,7 @@ class _HomePageState extends State<HomePage> {
                                 index: index, 
                                 selectedIdNotifier: _selectedDayIdNotifier, 
                                 isDark: isDark,
+                                useMaterialYou: useMaterialYou,
                                 textColor: textColor,
                                 onTap: () {
                                   _closeMenu();
@@ -511,12 +520,13 @@ class _HomePageState extends State<HomePage> {
                                   height: 44,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
-                                    border: Border.all(color: borderColor, width: 1.5),
+                                    border: Border.all(color: borderColor, width: 0.5),
                                     image: hasProfileImage
                                         ? DecorationImage(
-                                            // FIX: Applied ResizeImage to profile picture to prevent memory lag
+                                            // MEMORY FIX: Strict height/width targets prevent decoding 4K photos into RAM
                                             image: ResizeImage(
                                               FileImage(File(widget.appState.profileImagePath!)),
+                                              width: 150,
                                               height: 150, 
                                             ),
                                             fit: BoxFit.cover
@@ -562,6 +572,10 @@ class _HomePageState extends State<HomePage> {
                                     DateTime date = today.add(Duration(days: index - 15));
                                     bool isToday = date.day == today.day && date.month == today.month && date.year == today.year;
                                     
+                                    final Color unselectedChipBg = useMaterialYou
+                                        ? scheme.surfaceContainerLow
+                                        : (isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05));
+
                                     return AnimatedBuilder(
                                       animation: _calendarScrollController,
                                       builder: (context, child) {
@@ -585,49 +599,45 @@ class _HomePageState extends State<HomePage> {
                                         );
                                       },
                                       child: GestureDetector(
-  onTap: () => HapticFeedback.lightImpact(),
-  child: Container(
-    margin: const EdgeInsets.only(right: 12),
-    width: 60,
-      decoration: BoxDecoration(
-    borderRadius: BorderRadius.circular(18),
-    color: isToday 
-      ? primaryColor 
-      : (isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05)),
-    // THE FIX: Added width: 0.5 for a clean hairline separator
-    border: isToday 
-      ? null 
-      : Border.all(
-          color: isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08), 
-          width: 0.5
-        ),
-    boxShadow: !isDark && !isToday ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)] : [],
-  ),
-
-    child: Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          _getDayName(date.weekday),
-          style: TextStyle(
-            color: isToday ? invertedColor : Colors.grey, 
-            fontSize: 13, 
-            fontWeight: isToday ? FontWeight.bold : FontWeight.normal
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          '${date.day}',
-          style: TextStyle(
-            color: isToday ? invertedColor : textColor, 
-            fontSize: 18, 
-            fontWeight: FontWeight.bold
-          ),
-        ),
-      ],
-    ),
-  ),
-),
+                                        onTap: () => HapticFeedback.lightImpact(),
+                                        child: Container(
+                                          margin: const EdgeInsets.only(right: 12),
+                                          width: 60,
+                                          decoration: BoxDecoration(
+                                            borderRadius: BorderRadius.circular(18),
+                                            color: isToday ? primaryColor : unselectedChipBg,
+                                            border: isToday 
+                                              ? null 
+                                              : Border.all(
+                                                  color: useMaterialYou ? scheme.outlineVariant.withOpacity(0.5) : (isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)), 
+                                                  width: 0.5
+                                                ),
+                                            boxShadow: !isDark && !isToday ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)] : [],
+                                          ),
+                                          child: Column(
+                                            mainAxisAlignment: MainAxisAlignment.center,
+                                            children: [
+                                              Text(
+                                                _getDayName(date.weekday),
+                                                style: TextStyle(
+                                                  color: isToday ? invertedColor : Colors.grey, 
+                                                  fontSize: 13, 
+                                                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${date.day}',
+                                                style: TextStyle(
+                                                  color: isToday ? invertedColor : textColor, 
+                                                  fontSize: 18, 
+                                                  fontWeight: FontWeight.bold
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
                                     );
                                   },
                                 ),
@@ -656,6 +666,7 @@ class _DayCard extends StatefulWidget {
   final int index; 
   final ValueNotifier<String?> selectedIdNotifier; 
   final bool isDark;
+  final bool useMaterialYou;
   final Color textColor;
   final VoidCallback onTap;
   final Function(Offset) onOpenMenu;
@@ -667,6 +678,7 @@ class _DayCard extends StatefulWidget {
     required this.index,
     required this.selectedIdNotifier,
     required this.isDark,
+    required this.useMaterialYou,
     required this.textColor,
     required this.onTap,
     required this.onOpenMenu,
@@ -753,7 +765,9 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
     double baseScale = _isPressed ? 0.95 : (isSelected ? 1.03 : 1.0);
 
     bool hasImage = widget.day.imagePath != null && widget.day.imagePath!.isNotEmpty;
-    Color cardColor = widget.isDark ? const Color(0xFF141414) : Colors.white;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+    
+    Color cardColor = widget.useMaterialYou ? scheme.surfaceContainer : (widget.isDark ? const Color(0xFF141414) : Colors.white);
     Color displayTextColor = hasImage ? Colors.white : widget.textColor; 
 
     return Padding(
@@ -778,11 +792,13 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
                   decoration: BoxDecoration(
                     color: cardColor, 
                     borderRadius: BorderRadius.circular(24),
-                    boxShadow: !widget.isDark ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
+                    boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
                     image: hasImage
                         ? DecorationImage(
+                            // MEMORY FIX: Strict target width/height caps memory usage per card
                             image: ResizeImage(
                               FileImage(File(widget.day.imagePath!)),
+                              width: 800,
                               height: 400,
                             ),
                             fit: BoxFit.cover,
@@ -834,6 +850,7 @@ class _DayFloatingMenu extends StatelessWidget {
   final bool isPinned;
   final bool hasImage;
   final bool isDark;
+  final bool useMaterialYou;
   final Color textColor;
   final VoidCallback onRename;
   final VoidCallback onAddPicture;
@@ -848,6 +865,7 @@ class _DayFloatingMenu extends StatelessWidget {
     required this.isPinned,
     required this.hasImage,
     required this.isDark,
+    required this.useMaterialYou,
     required this.textColor,
     required this.onRename,
     required this.onAddPicture,
@@ -861,9 +879,14 @@ class _DayFloatingMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final ColorScheme scheme = Theme.of(context).colorScheme;
+
     double menuHeight = hasImage ? 310.0 : 205.0; 
     double topPos = (position.dy - menuHeight - 15).clamp(80.0, MediaQuery.of(context).size.height - menuHeight - 20);
     double leftPos = (position.dx - 110).clamp(15.0, screenWidth - 235.0);
+
+    final Color menuBg = useMaterialYou ? scheme.surfaceContainer : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
+    final Color dividerColor = useMaterialYou ? scheme.outlineVariant : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1));
 
     return Positioned(
       top: topPos,
@@ -882,30 +905,30 @@ class _DayFloatingMenu extends StatelessWidget {
         child: Container(
           width: 220,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white, 
+            color: menuBg, 
             borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05), width: 1),
+            border: Border.all(color: dividerColor, width: 1),
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.6 : 0.15), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildMenuItem(Icons.edit_outlined, 'Rename', textColor, onRename),
-              Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+              Divider(height: 1, color: dividerColor),
               
               if (hasImage) ...[
                 _buildMenuItem(Icons.image_outlined, 'Change picture', textColor, onChangePicture),
-                Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+                Divider(height: 1, color: dividerColor),
                 _buildMenuItem(Icons.crop, 'Crop & Position', textColor, onEditPicture),
-                Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+                Divider(height: 1, color: dividerColor),
                 _buildMenuItem(Icons.hide_image_outlined, 'Remove picture', textColor, onRemovePicture),
               ] else ...[
                 _buildMenuItem(Icons.add_photo_alternate_outlined, 'Add picture', textColor, onAddPicture),
               ],
               
-              Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+              Divider(height: 1, color: dividerColor),
               _buildMenuItem(Icons.push_pin_outlined, isPinned ? 'Unpin' : 'Pin to top', textColor, onPin),
-              Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+              Divider(height: 1, color: dividerColor),
               _buildMenuItem(Icons.delete_outline, 'Delete', Colors.redAccent, onRemove),
             ],
           ),

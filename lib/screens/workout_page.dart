@@ -39,7 +39,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
     if (_selectedWorkoutId != null) {
       setState(() => _selectedWorkoutId = null);
     }
-    _closeAddMenu(); // Ensures tapping anywhere else closes the plus menu too!
+    _closeAddMenu(); 
   }
 
   void _openMenu(String id, Offset position) {
@@ -65,10 +65,13 @@ class _WorkoutPageState extends State<WorkoutPage> {
     Share.share(shareText.trim());
   }
 
-  void _showAddWorkoutDialog(BuildContext context, bool isDark, Color dialogBg, Color textColor) {
-    TextEditingController nameController = TextEditingController();
-    TextEditingController repsController = TextEditingController();
+  void _showAddWorkoutDialog(BuildContext context, bool isDark, bool useMaterialYou, ColorScheme scheme, Color dialogBg, Color textColor) {
+    final TextEditingController nameController = TextEditingController();
+    final TextEditingController repsController = TextEditingController();
     
+    final Color hintColor = useMaterialYou ? scheme.onSurfaceVariant : Colors.grey;
+    final Color underlineColor = useMaterialYou ? scheme.outline : Colors.grey.shade600;
+
     showGeneralDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.7), 
@@ -90,15 +93,15 @@ class _WorkoutPageState extends State<WorkoutPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildThemedTextField(controller: nameController, hint: 'e.g., bench press', textColor: textColor, isDark: isDark),
+              _buildThemedTextField(controller: nameController, hint: 'e.g., bench press', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
               const SizedBox(height: 15),
-              _buildThemedTextField(controller: repsController, hint: 'e.g., 6', textColor: textColor, isDark: isDark),
+              _buildThemedTextField(controller: repsController, hint: 'e.g., 6', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: Text('Cancel', style: TextStyle(color: hintColor)),
             ),
             TextButton(
               onPressed: () {
@@ -112,13 +115,20 @@ class _WorkoutPageState extends State<WorkoutPage> {
           ],
         );
       },
-    );
+    ).then((_) {
+      // MEMORY LEAK FIX: Disposes the controllers instantly when the dialog route is closed!
+      nameController.dispose();
+      repsController.dispose();
+    });
   }
 
-  void _showEditDialog(BuildContext context, WorkoutItem item, bool isDark, Color dialogBg, Color textColor) {
-    TextEditingController nameController = TextEditingController(text: item.name);
-    TextEditingController repsController = TextEditingController(text: item.reps);
+  void _showEditDialog(BuildContext context, WorkoutItem item, bool isDark, bool useMaterialYou, ColorScheme scheme, Color dialogBg, Color textColor) {
+    final TextEditingController nameController = TextEditingController(text: item.name);
+    final TextEditingController repsController = TextEditingController(text: item.reps);
     
+    final Color hintColor = useMaterialYou ? scheme.onSurfaceVariant : Colors.grey;
+    final Color underlineColor = useMaterialYou ? scheme.outline : Colors.grey.shade600;
+
     showGeneralDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.7),
@@ -140,17 +150,17 @@ class _WorkoutPageState extends State<WorkoutPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildThemedTextField(controller: nameController, hint: item.isDivider ? 'Optional text' : 'Name', textColor: textColor, isDark: isDark),
+              _buildThemedTextField(controller: nameController, hint: item.isDivider ? 'Optional text' : 'Name', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
               if (!item.isDivider) ...[
                 const SizedBox(height: 15),
-                _buildThemedTextField(controller: repsController, hint: 'Reps', textColor: textColor, isDark: isDark),
+                _buildThemedTextField(controller: repsController, hint: 'Reps', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
               ]
             ],
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+              child: Text('Cancel', style: TextStyle(color: hintColor)),
             ),
             TextButton(
               onPressed: () {
@@ -164,24 +174,28 @@ class _WorkoutPageState extends State<WorkoutPage> {
           ],
         );
       },
-    );
+    ).then((_) {
+      // MEMORY LEAK FIX: Disposes the controllers instantly when the dialog route is closed!
+      nameController.dispose();
+      repsController.dispose();
+    });
   }
 
-  Widget _buildThemedTextField({required TextEditingController controller, required String hint, required Color textColor, required bool isDark}) {
+  Widget _buildThemedTextField({required TextEditingController controller, required String hint, required Color textColor, required Color hintColor, required Color underlineColor}) {
     return TextField(
       controller: controller,
       style: TextStyle(color: textColor),
       cursorColor: textColor,
       decoration: InputDecoration(
         hintText: hint,
-        hintStyle: const TextStyle(color: Colors.grey),
-        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade600)),
+        hintStyle: TextStyle(color: hintColor),
+        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: underlineColor)),
         focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor)),
       ),
     );
   }
 
-   void _showAddMenu(bool isDark, Color menuBg, Color textColor) {
+   void _showAddMenu(bool isDark, bool useMaterialYou, ColorScheme scheme, Color textColor) {
     if (_addMenuOverlayEntry != null) {
       _closeAddMenu();
       return;
@@ -191,6 +205,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
     if (renderBox == null) return;
     
     final position = renderBox.localToGlobal(Offset.zero);
+
+    // MATERIAL YOU ADAPTATION FOR MENU
+    final Color menuBg = useMaterialYou ? scheme.surfaceContainer : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
+    final Color dividerColor = useMaterialYou ? scheme.outlineVariant : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1));
+    final Color dialogBg = useMaterialYou ? scheme.surfaceContainerHigh : (isDark ? const Color(0xFF121212) : Colors.white);
 
     _addMenuOverlayEntry = OverlayEntry(
       builder: (context) {
@@ -211,7 +230,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                 right: 20,
                 child: TweenAnimationBuilder<double>(
                   tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 250), // Sped up for premium snappiness!
+                  duration: const Duration(milliseconds: 250), 
                   curve: Curves.easeOutBack, 
                   builder: (context, value, child) {
                     return Transform.scale(
@@ -225,7 +244,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     decoration: BoxDecoration(
                       color: menuBg, 
                       borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05), width: 1),
+                      border: Border.all(color: dividerColor, width: 1),
                       boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.6 : 0.15), blurRadius: 20, offset: const Offset(0, 10))],
                     ),
                     child: Column(
@@ -234,7 +253,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                         InkWell(
                           onTap: () { 
                             _closeAddMenu(); 
-                            _showAddWorkoutDialog(this.context, isDark, isDark ? const Color(0xFF121212) : Colors.white, textColor); 
+                            _showAddWorkoutDialog(this.context, isDark, useMaterialYou, scheme, dialogBg, textColor); 
                           },
                           borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
                           child: Padding(
@@ -248,7 +267,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                             ),
                           ),
                         ),
-                        Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1), indent: 16, endIndent: 16),
+                        Divider(height: 1, color: dividerColor, indent: 16, endIndent: 16),
                         InkWell(
                           onTap: () { 
                             _closeAddMenu(); 
@@ -286,19 +305,25 @@ class _WorkoutPageState extends State<WorkoutPage> {
       builder: (context, child) {
         
         final bool isDark = widget.appState.isDarkMode;
-        final Color bgColor = isDark ? Colors.black : const Color(0xFFF2F2F7);
-        final Color textColor = isDark ? Colors.white : Colors.black;
-        final Color dialogBg = isDark ? const Color(0xFF121212) : Colors.white;
-        final Color frostedBg = isDark ? Colors.black.withOpacity(0.35) : Colors.white.withOpacity(0.7);
-        final Color cardColor = isDark ? const Color(0xFF1C1C1E) : Colors.white;
+        final bool useMaterialYou = widget.appState.useMaterialYou;
+        final ColorScheme scheme = Theme.of(context).colorScheme;
+
+        // THE FIX: Uses the new string ID to check if it should use the default premium black aesthetic
+        final bool isPremiumBlack = !useMaterialYou && widget.appState.themePresetId == 'default_black';
+
+        final Color bgColor = isPremiumBlack ? (isDark ? Colors.black : const Color(0xFFF2F2F7)) : scheme.surface;
+        final Color textColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.onSurface;
+        final Color dialogBg = isPremiumBlack ? (isDark ? const Color(0xFF121212) : Colors.white) : scheme.surfaceContainerHigh;
+        final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.35) : Colors.white.withOpacity(0.7)) : scheme.surface.withOpacity(0.7);
+        final Color cardColor = isPremiumBlack ? (isDark ? const Color(0xFF1C1C1E) : Colors.white) : scheme.surfaceContainerHigh;
+
 
         final day = widget.appState.days.firstWhere((d) => d.id == widget.dayId, orElse: () => WorkoutDay(id: '', name: 'Error', workouts: []));
         final bool hasCompleted = widget.appState.hasCompletedWorkouts(widget.dayId);
         
-        // FIX: Dynamic padding based on string length to accommodate wrapped text
         final int titleLength = day.name.length;
         final double extraPadding = titleLength > 30 ? 80.0 : (titleLength > 15 ? 40.0 : 0.0);
-        final topPadding = MediaQuery.of(context).padding.top + 160.0 + extraPadding;
+        final double topPadding = MediaQuery.of(context).padding.top + 160.0 + extraPadding;
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -331,6 +356,8 @@ class _WorkoutPageState extends State<WorkoutPage> {
                           index: index,
                           isSelected: _selectedWorkoutId == item.id,
                           isDark: isDark,
+                          useMaterialYou: useMaterialYou,
+                          scheme: scheme,
                           textColor: textColor,
                           onToggleComplete: () {
                             _closeMenu();
@@ -370,13 +397,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
                               BouncingWidget(
-  onTap: () {
-    _closeAddMenu();
-    Navigator.pop(context);
-  },
-  child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)),
-),
-
+                                onTap: () {
+                                  _closeAddMenu();
+                                  Navigator.pop(context);
+                                },
+                                child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)),
+                              ),
                               SizedBox(
                                 width: 144, 
                                 height: 40,
@@ -411,7 +437,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                                       right: 0.0,
                                       child: BouncingWidget(
                                         key: _plusButtonKey, 
-                                        onTap: () => _showAddMenu(isDark, cardColor, textColor),
+                                        onTap: () => _showAddMenu(isDark, useMaterialYou, scheme, textColor),
                                         child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.add, color: textColor, size: 22)),
                                       ),
                                     ),
@@ -422,7 +448,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
                           ),
                           const SizedBox(height: 25),
                           
-                          // FIX: Added maxLines and line height to handle text wrapping properly
                           Text(
                             day.name, 
                             maxLines: 3, 
@@ -449,10 +474,12 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     isDivider: w.isDivider,
                     dividerHasText: w.name.isNotEmpty, 
                     isDark: isDark,
+                    useMaterialYou: useMaterialYou,
+                    scheme: scheme,
                     textColor: textColor,
                     onEdit: () {
                       _closeMenu();
-                      _showEditDialog(context, w, isDark, dialogBg, textColor);
+                      _showEditDialog(context, w, isDark, useMaterialYou, scheme, dialogBg, textColor);
                     },
                     onRemove: () {
                       widget.appState.deleteWorkout(widget.dayId, _selectedWorkoutId!);
@@ -474,6 +501,8 @@ class _WorkoutRow extends StatefulWidget {
   final int index;
   final bool isSelected;
   final bool isDark;
+  final bool useMaterialYou;
+  final ColorScheme scheme;
   final Color textColor;
   final VoidCallback onToggleComplete;
   final Function(Offset) onOpenMenu;
@@ -485,6 +514,8 @@ class _WorkoutRow extends StatefulWidget {
     required this.index,
     required this.isSelected,
     required this.isDark,
+    required this.useMaterialYou,
+    required this.scheme,
     required this.textColor,
     required this.onToggleComplete,
     required this.onOpenMenu,
@@ -505,7 +536,6 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
   @override
   void initState() {
     super.initState();
-    // FIX: Removed the heavy setState listener here to prevent blur rebuilds
     _pulseController = AnimationController(vsync: this, duration: const Duration(milliseconds: 700));
   }
 
@@ -568,7 +598,6 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-
     double baseScale = _isPressed ? 0.96 : (widget.isSelected ? 1.04 : 1.0);
 
     return RepaintBoundary(
@@ -584,7 +613,6 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
             scale: baseScale,
             duration: const Duration(milliseconds: 350), 
             curve: Curves.easeOutBack,
-            // FIX: Replaced manual math Transform with GPU-optimized ScaleTransition
             child: ScaleTransition(
               scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
               alignment: Alignment.center,
@@ -603,7 +631,11 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
   }
 
   Widget _buildWorkoutUI(double screenWidth) {
-    Color itemColor = widget.item.isCompleted ? Colors.grey : widget.textColor;
+    Color itemColor = widget.item.isCompleted 
+      ? (widget.useMaterialYou ? widget.scheme.onSurfaceVariant.withOpacity(0.6) : Colors.grey) 
+      : widget.textColor;
+      
+    Color lineStrikeColor = widget.useMaterialYou ? widget.scheme.outlineVariant : (widget.isDark ? const Color(0xFF3A3A3C) : Colors.grey.shade400);
     
     return Stack(
       alignment: Alignment.centerLeft,
@@ -630,7 +662,7 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
             width: widget.item.isCompleted ? screenWidth - 50 : 0, 
             height: 2,
             decoration: BoxDecoration(
-              color: widget.isDark ? const Color(0xFF3A3A3C) : Colors.grey.shade400, 
+              color: lineStrikeColor, 
               borderRadius: BorderRadius.circular(2)
             ),
           ),
@@ -640,17 +672,20 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
   }
 
   Widget _buildDividerUI() {
+    Color divColor = widget.useMaterialYou ? widget.scheme.outlineVariant : (widget.isDark ? Colors.white24 : Colors.black26);
+    Color divTextColor = widget.useMaterialYou ? widget.scheme.onSurfaceVariant : Colors.grey;
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         children: [
-          Expanded(child: Divider(color: widget.isDark ? Colors.white24 : Colors.black26, thickness: 1)),
+          Expanded(child: Divider(color: divColor, thickness: 1)),
           if (widget.item.name.isNotEmpty) ...[
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Text(widget.item.name, style: const TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.bold)),
+              child: Text(widget.item.name, style: TextStyle(color: divTextColor, fontSize: 13, fontWeight: FontWeight.bold)),
             ),
-            Expanded(child: Divider(color: widget.isDark ? Colors.white24 : Colors.black26, thickness: 1)),
+            Expanded(child: Divider(color: divColor, thickness: 1)),
           ]
         ],
       ),
@@ -663,6 +698,8 @@ class _CustomFloatingMenu extends StatelessWidget {
   final bool isDivider;
   final bool dividerHasText;
   final bool isDark;
+  final bool useMaterialYou;
+  final ColorScheme scheme;
   final Color textColor;
   final VoidCallback onEdit;
   final VoidCallback onRemove;
@@ -672,6 +709,8 @@ class _CustomFloatingMenu extends StatelessWidget {
     required this.isDivider,
     required this.dividerHasText,
     required this.isDark,
+    required this.useMaterialYou,
+    required this.scheme,
     required this.textColor,
     required this.onEdit,
     required this.onRemove,
@@ -685,6 +724,9 @@ class _CustomFloatingMenu extends StatelessWidget {
     double leftPos = (position.dx - 100).clamp(15.0, screenWidth - 215.0);
 
     final String renameText = isDivider ? (dividerHasText ? 'Rename' : 'Add text') : 'Rename';
+    
+    final Color menuBg = useMaterialYou ? scheme.surfaceContainer : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
+    final Color dividerColor = useMaterialYou ? scheme.outlineVariant : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1));
 
     return Positioned(
       top: topPos,
@@ -703,16 +745,16 @@ class _CustomFloatingMenu extends StatelessWidget {
         child: Container(
           width: 200,
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1C1C1E) : Colors.white, 
+            color: menuBg, 
             borderRadius: BorderRadius.circular(18), 
-            border: Border.all(color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.05), width: 1),
+            border: Border.all(color: dividerColor, width: 1),
             boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.6 : 0.15), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _buildMenuItem(Icons.edit_outlined, renameText, textColor, onEdit),
-              Divider(height: 1, color: isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1)),
+              Divider(height: 1, color: dividerColor),
               _buildMenuItem(Icons.delete_outline, 'Remove', Colors.redAccent, onRemove),
             ],
           ),
