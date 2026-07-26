@@ -39,10 +39,10 @@
 
 <p align="middle">
   <img src="images/banner.webp" width="99%" alt="My Workouts Banner" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.png" width="24%" alt="Welcome Screen" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.png" width="24%" alt="Home Schedule" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.png" width="24%" alt="Workout Logging" />
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-progress.png" width="24%" alt="Progress Charts" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.webp" width="24%" alt="Welcome Screen" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.webp" width="24%" alt="Home Schedule" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.webp" width="24%" alt="Workout Logging" />
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4-progress.webp" width="24%" alt="Progress Charts" />
 </p>
 
 ---
