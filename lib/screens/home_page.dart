@@ -6,7 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart'; 
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart'; 
-import 'package:shared_preferences/shared_preferences.dart'; // Added for persistent timer saving
+import 'package:shared_preferences/shared_preferences.dart'; 
 import '../state/workout_state.dart';
 import '../models/workout_models.dart';
 import '../widgets/bouncing_widget.dart';
@@ -488,10 +488,20 @@ class _HomePageState extends State<HomePage> {
                             crossAxisAlignment: CrossAxisAlignment.center,
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Text(
-                                'My Workouts', 
-                                style: TextStyle(fontFamily: 'WorkoutFont', fontSize: 42, color: textColor, height: 1.0),
+                              Expanded(
+                                child: Text(
+                                  'My Workouts', 
+                                  style: TextStyle(
+                                    fontFamily: 'WorkoutFont', 
+                                    fontSize: 34, 
+                                    color: textColor, 
+                                    height: 1.0
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
+                              const SizedBox(width: 15),
                               BouncingWidget(
                                 onTap: () {
                                   FocusManager.instance.primaryFocus?.unfocus();
@@ -514,24 +524,25 @@ class _HomePageState extends State<HomePage> {
                                     );
                                   });
                                 },
+                                // THE FIX: Replaced heavy DecorationImage with optimized Image.file
                                 child: Container(
                                   width: 44,
                                   height: 44,
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     border: Border.all(color: borderColor, width: 0.5),
-                                    image: hasProfileImage
-                                        ? DecorationImage(
-                                            image: ResizeImage(
-                                              FileImage(File(widget.appState.profileImagePath!)),
-                                              width: 150,
-                                              height: 150, 
-                                            ),
-                                            fit: BoxFit.cover
-                                          )
-                                        : null,
+                                    color: hasProfileImage ? null : Colors.transparent,
                                   ),
-                                  child: !hasProfileImage ? Icon(Icons.person, color: textColor, size: 24) : null,
+                                  child: hasProfileImage 
+                                    ? ClipOval(
+                                        child: Image.file(
+                                          File(widget.appState.profileImagePath!),
+                                          fit: BoxFit.cover,
+                                          cacheWidth: 100, // Strict GPU cap
+                                          gaplessPlayback: true,
+                                        ),
+                                      )
+                                    : Icon(Icons.person, color: textColor, size: 24),
                                 ),
                               )
                             ],
@@ -644,7 +655,6 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SizedBox(height: 20),
                           
-                          // NEW: Workout Timer Widget
                           _WorkoutTimerWidget(
                             isDark: isDark,
                             useMaterialYou: useMaterialYou,
@@ -709,7 +719,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
   @override
   void initState() {
     super.initState();
-    // Default fallback starting position, overridden by SharedPreferences immediately
     _pickerController = FixedExtentScrollController(initialItem: 7); 
     _loadSavedDuration();
   }
@@ -721,7 +730,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
     super.dispose();
   }
 
-  // THE FIX: Instantly pulls the user's previously set time from the phone's local storage
   Future<void> _loadSavedDuration() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -730,7 +738,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
         setState(() {
           _durationSeconds = savedSecs;
           _remainingSeconds = savedSecs;
-          // Mathematically snaps the wheel directly to their saved time
           _pickerController.jumpToItem((savedSecs ~/ 5) - 1);
         });
       }
@@ -913,9 +920,9 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
                   diameterRatio: 1.2,
                   squeeze: 1.1,
                   selectionOverlay: const CupertinoPickerDefaultSelectionOverlay(background: Colors.transparent),
-                  // THE FIX: Saves the selection and gives a strong physical thud on scroll
+                  // THE FIX: Uses selectionClick() to drop rapid events and prevent buzzing
                   onSelectedItemChanged: (index) async {
-                    HapticFeedback.lightImpact(); // Noticeable, premium hardware tick 
+                    HapticFeedback.selectionClick(); 
                     
                     int newSecs = (index + 1) * 5;
                     setState(() {
@@ -1082,52 +1089,55 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
               scale: baseScale,
               duration: const Duration(milliseconds: 350),
               curve: Curves.easeOutBack,
+              // THE FIX: Swapped memory-heavy DecorationImage for hardware-accelerated ClipRRect Stack
               child: Container(
                 height: 180, 
                 decoration: BoxDecoration(
                   color: cardColor, 
                   borderRadius: BorderRadius.circular(24),
                   boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
-                  image: hasImage
-                      ? DecorationImage(
-                          image: ResizeImage(
-                            FileImage(File(widget.day.imagePath!)),
-                            width: 800,
-                            height: 400,
-                          ),
-                          fit: BoxFit.cover,
-                          colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
-                        )
-                      : null,
                 ),
-                child: Stack(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            widget.day.name,
-                            maxLines: 3, 
-                            style: TextStyle(
-                              color: displayTextColor, 
-                              fontSize: 22, 
-                              fontWeight: FontWeight.bold,
-                              height: 1.15, 
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(24),
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      if (hasImage)
+                        Image.file(
+                          File(widget.day.imagePath!),
+                          fit: BoxFit.cover,
+                          cacheWidth: 500, // Forces GPU to drop the high-res file out of active RAM
+                          gaplessPlayback: true,
+                          colorBlendMode: BlendMode.darken,
+                          color: Colors.black.withOpacity(0.4),
+                        ),
+                      Padding(
+                        padding: const EdgeInsets.all(24.0),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              widget.day.name,
+                              maxLines: 3, 
+                              style: TextStyle(
+                                color: displayTextColor, 
+                                fontSize: 22, 
+                                fontWeight: FontWeight.bold,
+                                height: 1.15, 
+                              ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
-                    ),
-                    if (widget.day.isPinned)
-                      Positioned(
-                        top: 20,
-                        right: 22,
-                        child: Icon(Icons.push_pin, color: displayTextColor.withOpacity(0.8), size: 22),
-                      ),
-                  ],
+                      if (widget.day.isPinned)
+                        Positioned(
+                          top: 20,
+                          right: 22,
+                          child: Icon(Icons.push_pin, color: displayTextColor.withOpacity(0.8), size: 22),
+                        ),
+                    ],
+                  ),
                 ),
               ),
             ),

@@ -35,11 +35,12 @@ class _SettingsPageState extends State<SettingsPage> {
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
       if (mounted) {
         setState(() {
-          _appVersion = 'Version ${packageInfo.version} (${packageInfo.buildNumber})';
+          // THE FIX: Stripped out the internal build number (2004)
+          _appVersion = 'Version ${packageInfo.version}';
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _appVersion = 'Version 1.1.0');
+      if (mounted) setState(() => _appVersion = 'Version 1.2.0');
     }
   }
   
@@ -327,7 +328,7 @@ class _SettingsPageState extends State<SettingsPage> {
       any Contribution intentionally submitted for inclusion in the Work
       by You to the Licensor shall be under the terms and conditions of
       this License, without any additional terms or conditions.
-      Notwithstanding the above, nothing herein shall supersede or modify
+      Notwithstanding the above, nothing herein supersede or modify
       the terms of any separate license agreement you may have executed
       with Licensor regarding such Contributions.
 
@@ -427,7 +428,8 @@ class _SettingsPageState extends State<SettingsPage> {
               Positioned.fill(
                 child: ListView(
                   physics: const BouncingScrollPhysics(),
-                  padding: EdgeInsets.only(top: topPadding, bottom: 60, left: 20, right: 20),
+                  // THE FIX: Reduced the bottom padding to eliminate huge blank spaces
+                  padding: EdgeInsets.only(top: topPadding, bottom: 40, left: 20, right: 20),
                   children: [
                     const SizedBox(height: 20),
 
@@ -443,7 +445,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                 CircleAvatar(
                                   radius: 60,
                                   backgroundColor: cardColor,
-                                  // THE FIX: Limits file size memory
                                   backgroundImage: hasProfileImage 
                                     ? ResizeImage(FileImage(File(widget.appState.profileImagePath!)), width: 250) 
                                     : null,
@@ -559,27 +560,30 @@ class _SettingsPageState extends State<SettingsPage> {
                                         context, 
                                         MaterialPageRoute(builder: (context) => ThemeSelectionPage(appState: widget.appState))
                                       ),
+                                      // THE FIX: Wrapped the preset name in a Flexible container to prevent pushing the arrow out of bounds
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                                         child: Row(
-                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                           children: [
-                                            Row(
-                                              children: [
-                                                Icon(Icons.palette, color: textColor, size: 24),
-                                                const SizedBox(width: 15),
-                                                Text('Theme Presets', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
-                                              ],
-                                            ),
-                                            Row(
-                                              children: [
-                                                Text(
-                                                  appThemePresets.firstWhere((p) => p.id == widget.appState.themePresetId).name, 
-                                                  style: TextStyle(color: subTextColor, fontSize: 14)
-                                                ),
-                                                const SizedBox(width: 8),
-                                                Icon(Icons.arrow_forward_ios, color: subTextColor, size: 16),
-                                              ],
+                                            Icon(Icons.palette, color: textColor, size: 24),
+                                            const SizedBox(width: 15),
+                                            Text('Theme Presets', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
+                                            const SizedBox(width: 15),
+                                            Expanded(
+                                              child: Row(
+                                                mainAxisAlignment: MainAxisAlignment.end,
+                                                children: [
+                                                  Flexible(
+                                                    child: Text(
+                                                      appThemePresets.firstWhere((p) => p.id == widget.appState.themePresetId).name, 
+                                                      style: TextStyle(color: subTextColor, fontSize: 14),
+                                                      overflow: TextOverflow.ellipsis,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Icon(Icons.arrow_forward_ios, color: subTextColor, size: 16),
+                                                ],
+                                              ),
                                             )
                                           ],
                                         ),
@@ -738,87 +742,8 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Column(
                         children: [
                           
-                          Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Row(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(14),
-                                  // THE FIX: Highly optimized raw Image.asset with cacheWidth
-                                  child: Image.asset(
-                                    'assets/app_icon.webp', 
-                                    width: 60, 
-                                    height: 60, 
-                                    fit: BoxFit.cover,
-                                    cacheWidth: 120, // Forces GPU to decode small
-                                    gaplessPlayback: true,
-                                    errorBuilder: (context, error, stackTrace) => Container(
-                                      width: 60, height: 60, color: isDark ? Colors.white12 : Colors.black12,
-                                      child: Icon(Icons.fitness_center, color: textColor),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 15),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      Text('My Workout', style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.bold)),
-                                      const SizedBox(height: 4),
-                                      Text(_appVersion, style: TextStyle(color: subTextColor, fontSize: 14)),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Divider(height: 1, color: dividerColor),
-
-                          // APP GITHUB REPO & TELEGRAM GROUP BUTTONS
-                          Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-                            child: Row(
-                              children: [
-                                Expanded(
-                                  child: BouncingWidget(
-                                    onTap: () => _launchUrl('https://github.com/chathushkaimasara/My-Workouts'),
-                                    // THE FIX: Clean ClipRRect + Image.asset stops UI thread stuttering
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.asset(
-                                        'assets/github_button.webp',
-                                        height: 48,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        cacheWidth: 400,
-                                        gaplessPlayback: true,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 15),
-                                Expanded(
-                                  child: BouncingWidget(
-                                    onTap: () => _launchUrl('https://t.me/myworkoutsapp'),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.asset(
-                                        'assets/telegram_button.webp',
-                                        height: 48,
-                                        width: double.infinity,
-                                        fit: BoxFit.cover,
-                                        cacheWidth: 400,
-                                        gaplessPlayback: true,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Divider(height: 1, color: dividerColor),
-                          
-                          // DEVELOPER INFO
+                          // THE FIX: Reordered! Developer info is now above App info
+                          // 1. DEVELOPER INFO
                           BouncingWidget(
                             onTap: () => _launchUrl('https://github.com/chathushkaimasara'),
                             child: Padding(
@@ -858,7 +783,7 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           Divider(height: 1, color: dividerColor),
 
-                          // DEVELOPER GITHUB & KO-FI BUTTONS
+                          // 2. DEVELOPER GITHUB & KO-FI BUTTONS
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                             child: Row(
@@ -901,6 +826,86 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           Divider(height: 1, color: dividerColor),
 
+                          // 3. APP INFO
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(14),
+                                  child: Image.asset(
+                                    'assets/app_icon.webp', 
+                                    width: 60, 
+                                    height: 60, 
+                                    fit: BoxFit.cover,
+                                    cacheWidth: 120, 
+                                    gaplessPlayback: true,
+                                    errorBuilder: (context, error, stackTrace) => Container(
+                                      width: 60, height: 60, color: isDark ? Colors.white12 : Colors.black12,
+                                      child: Icon(Icons.fitness_center, color: textColor),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text('My Workout', style: TextStyle(color: textColor, fontSize: 22, fontWeight: FontWeight.bold)),
+                                      const SizedBox(height: 4),
+                                      Text(_appVersion, style: TextStyle(color: subTextColor, fontSize: 14)),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: dividerColor),
+
+                          // 4. APP GITHUB REPO & TELEGRAM GROUP BUTTONS
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: BouncingWidget(
+                                    onTap: () => _launchUrl('https://github.com/chathushkaimasara/My-Workouts'),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.asset(
+                                        'assets/github_button.webp',
+                                        height: 48,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        cacheWidth: 400,
+                                        gaplessPlayback: true,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 15),
+                                Expanded(
+                                  child: BouncingWidget(
+                                    onTap: () => _launchUrl('https://t.me/myworkoutsapp'),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(12),
+                                      child: Image.asset(
+                                        'assets/telegram_button.webp',
+                                        height: 48,
+                                        width: double.infinity,
+                                        fit: BoxFit.cover,
+                                        cacheWidth: 400,
+                                        gaplessPlayback: true,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: dividerColor),
+
+                          // 5. LICENSES
                           BouncingWidget(
                             onTap: () => Navigator.push(
                               context, 
@@ -941,7 +946,7 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 60), 
+                    // Removed the 60px blank box here for a tighter scroll view
                   ],
                 ),
               ),

@@ -321,7 +321,6 @@ class _CustomThemeCardState extends State<CustomThemeCard> with TickerProviderSt
   }
 
   void _handlePointerMove(PointerMoveEvent event) {
-    // THE FIX: If the finger moves more than 10 pixels, cancel the tap!
     if (!_isScrolling && (event.position - _tapPosition).distance > 10) {
       _isScrolling = true;
       _bounceController.reverse();
@@ -351,7 +350,7 @@ class _CustomThemeCardState extends State<CustomThemeCard> with TickerProviderSt
 
     return Listener(
       onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove, // ADDED: Scroll tracking
+      onPointerMove: _handlePointerMove, 
       onPointerUp: _handlePointerUp,
       onPointerCancel: _handlePointerCancel,
       behavior: HitTestBehavior.opaque,
@@ -375,14 +374,15 @@ class _CustomThemeCardState extends State<CustomThemeCard> with TickerProviderSt
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
+                // THE FIX: Replaced the layout-breaking Spacer() with fixed, predictable sizing
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text('Custom Color', style: TextStyle(color: widget.textColor, fontSize: 26, fontWeight: FontWeight.bold)),
+                    Text('Custom Color', style: TextStyle(color: widget.textColor, fontSize: 24, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 6),
-                    Text('"Define an exact hex theme."', style: TextStyle(color: widget.subTextColor, fontSize: 14, fontStyle: FontStyle.italic)),
-                    const Spacer(),
+                    Text('"Define an exact hex theme."', style: TextStyle(color: widget.subTextColor, fontSize: 13, fontStyle: FontStyle.italic)),
+                    const SizedBox(height: 14), 
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
                       decoration: BoxDecoration(
@@ -512,7 +512,7 @@ class _CuratedPresetCardState extends State<CuratedPresetCard> with TickerProvid
 
     return Listener(
       onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove, // ADDED: Scroll tracking
+      onPointerMove: _handlePointerMove, 
       onPointerUp: _handlePointerUp,
       onPointerCancel: _handlePointerCancel,
       behavior: HitTestBehavior.opaque,
@@ -655,7 +655,7 @@ class _RecentColorCircleState extends State<RecentColorCircle> with TickerProvid
 
     return Listener(
       onPointerDown: _handlePointerDown,
-      onPointerMove: _handlePointerMove, // ADDED: Scroll tracking
+      onPointerMove: _handlePointerMove, 
       onPointerUp: _handlePointerUp,
       onPointerCancel: _handlePointerCancel,
       behavior: HitTestBehavior.opaque,
@@ -694,8 +694,9 @@ class _RecentColorCircleState extends State<RecentColorCircle> with TickerProvid
 }
 
 // -----------------------------------------------------------------------------
-// MEMORY LEAK FIX: Path Caching in the Splat Painter
-// Calculates the math ONCE for the whole app, skipping heavy CPU operations!
+// MEMORY LEAK FIX: Dynamic Path Caching
+// Uses a Map to permanently save the math for different shapes (e.g. Size 70 vs 90)
+// This stops the cards from constantly overriding each other's paths and wasting CPU!
 // -----------------------------------------------------------------------------
 class _GPUAcceleratedSplat extends StatelessWidget {
   final Animation<double> animation;
@@ -725,23 +726,22 @@ class _GPUAcceleratedSplat extends StatelessWidget {
 class _SplashPainter extends CustomPainter {
   final Color color;
   
-  static Path? _cachedFillPath;
-  static Path? _cachedStrokePath;
-  static Size? _lastSize;
+  // THE FIX: Converted the single static cache into a Map so different sized cards don't fight
+  static final Map<Size, Path> _cachedFillPaths = {};
+  static final Map<Size, Path> _cachedStrokePaths = {};
 
   _SplashPainter({required this.color});
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (_cachedFillPath == null || _cachedStrokePath == null || _lastSize != size) {
-      _lastSize = size;
-      _cachedFillPath = Path();
-      _cachedStrokePath = Path();
+    if (!_cachedFillPaths.containsKey(size) || !_cachedStrokePaths.containsKey(size)) {
+      Path fillPath = Path();
+      Path strokePath = Path();
 
       final center = Offset(size.width / 2, size.height / 2);
       final radius = size.width / 2;
 
-      _cachedFillPath!.addOval(Rect.fromCircle(center: center, radius: radius * 0.45));
+      fillPath.addOval(Rect.fromCircle(center: center, radius: radius * 0.45));
 
       final math.Random rand = math.Random(123); 
       
@@ -764,8 +764,8 @@ class _SplashPainter extends CustomPainter {
           center.dy + (length * 0.6) * math.sin(ctrlAngle)
         );
 
-        _cachedStrokePath!.moveTo(start.dx, start.dy);
-        _cachedStrokePath!.quadraticBezierTo(ctrl.dx, ctrl.dy, end.dx, end.dy);
+        strokePath.moveTo(start.dx, start.dy);
+        strokePath.quadraticBezierTo(ctrl.dx, ctrl.dy, end.dx, end.dy);
       }
       
       for (int i = 0; i < 3; i++) {
@@ -775,8 +775,11 @@ class _SplashPainter extends CustomPainter {
             center.dx + dist * math.cos(angle),
             center.dy + dist * math.sin(angle)
          );
-         _cachedFillPath!.addOval(Rect.fromCircle(center: drop, radius: radius * 0.12));
+         fillPath.addOval(Rect.fromCircle(center: drop, radius: radius * 0.12));
       }
+
+      _cachedFillPaths[size] = fillPath;
+      _cachedStrokePaths[size] = strokePath;
     }
 
     final fillPaint = Paint()..color = color..style = PaintingStyle.fill;
@@ -786,8 +789,8 @@ class _SplashPainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeWidth = (size.width / 2) * 0.35;
 
-    canvas.drawPath(_cachedFillPath!, fillPaint);
-    canvas.drawPath(_cachedStrokePath!, strokePaint);
+    canvas.drawPath(_cachedFillPaths[size]!, fillPaint);
+    canvas.drawPath(_cachedStrokePaths[size]!, strokePaint);
   }
 
   @override
