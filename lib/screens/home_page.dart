@@ -6,6 +6,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart'; 
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart'; 
+import 'package:shared_preferences/shared_preferences.dart'; // Added for persistent timer saving
 import '../state/workout_state.dart';
 import '../models/workout_models.dart';
 import '../widgets/bouncing_widget.dart';
@@ -708,7 +709,9 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
   @override
   void initState() {
     super.initState();
-    _pickerController = FixedExtentScrollController(initialItem: 7);
+    // Default fallback starting position, overridden by SharedPreferences immediately
+    _pickerController = FixedExtentScrollController(initialItem: 7); 
+    _loadSavedDuration();
   }
 
   @override
@@ -716,6 +719,24 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
     _timer?.cancel();
     _pickerController.dispose();
     super.dispose();
+  }
+
+  // THE FIX: Instantly pulls the user's previously set time from the phone's local storage
+  Future<void> _loadSavedDuration() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedSecs = prefs.getInt('workout_timer_duration') ?? 40;
+      if (mounted) {
+        setState(() {
+          _durationSeconds = savedSecs;
+          _remainingSeconds = savedSecs;
+          // Mathematically snaps the wheel directly to their saved time
+          _pickerController.jumpToItem((savedSecs ~/ 5) - 1);
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading timer pref: $e');
+    }
   }
 
   void _triggerBounceAnimation() {
@@ -839,8 +860,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                // THE FIX: The Look-Ahead Trick
-                // We tell the bar to instantly target the NEXT second so the animation starts the millisecond you hit play
                 double targetSeconds = _remainingSeconds.toDouble();
                 if (_state == TimerState.running && _remainingSeconds > 0) {
                   targetSeconds -= 1.0;
@@ -894,13 +913,23 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
                   diameterRatio: 1.2,
                   squeeze: 1.1,
                   selectionOverlay: const CupertinoPickerDefaultSelectionOverlay(background: Colors.transparent),
-                  onSelectedItemChanged: (index) {
-                    HapticFeedback.selectionClick();
+                  // THE FIX: Saves the selection and gives a strong physical thud on scroll
+                  onSelectedItemChanged: (index) async {
+                    HapticFeedback.lightImpact(); // Noticeable, premium hardware tick 
+                    
+                    int newSecs = (index + 1) * 5;
                     setState(() {
-                      _durationSeconds = (index + 1) * 5;
-                      _remainingSeconds = _durationSeconds; 
+                      _durationSeconds = newSecs;
+                      _remainingSeconds = newSecs; 
                       _state = TimerState.stopped;
                     });
+                    
+                    try {
+                      final prefs = await SharedPreferences.getInstance();
+                      await prefs.setInt('workout_timer_duration', newSecs);
+                    } catch (e) {
+                      debugPrint('Error saving timer pref: $e');
+                    }
                   },
                   children: List.generate(60, (index) {
                     int secs = (index + 1) * 5;
