@@ -38,7 +38,7 @@
 </p>
 
 <p align="middle">
-  <img src="assets/banner.webp" width="99%" alt="My Workouts Banner" />
+  <img src="images/banner.webp" width="99%" alt="My Workouts Banner" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1-welcome.png" width="24%" alt="Welcome Screen" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/2-home.png" width="24%" alt="Home Schedule" />
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3-workout.png" width="24%" alt="Workout Logging" />
@@ -122,34 +122,29 @@ flutter doctor
 ```bash
 git clone [https://github.com/chathushkaimasara/My-Workouts.git](https://github.com/chathushkaimasara/My-Workouts.git)
 
-
 ```
  2. **Navigate to the project directory:**
 ```bash
 cd My-Workouts
-
 
 ```
  3. **Fetch dependencies:**
 ```bash
 flutter pub get
 
-
 ```
  4. **Run the app on a connected device or emulator:**
 ```bash
 flutter run
-
 
 ```
  5. **(Optional) Build optimized APKs for release:**
 ```bash
 flutter build apk --split-per-abi
 
-
 ```
 ## ⚖️ License
-```
+```text
 Designed and developed by 2026 Chathushka
 
     Licensed under the MIT License; you may not use this file except in compliance with the License.
@@ -162,7 +157,6 @@ Designed and developed by 2026 Chathushka
     See the License for the specific language governing permissions and limitations under the License.
 
     Font Asset: 
-    The RIVERA font used in this project is copyrighted by Shinko Art Studio and explicitly permitted for distribution and embedding within apps.
-
+    The Permanent Marker font used in this project is licensed under the Apache License, Version 2.0.
 
 ```

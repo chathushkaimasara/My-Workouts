@@ -66,10 +66,11 @@ flutter:
   fonts:
     - family: WorkoutFont
       fonts:
-        - asset: assets/fonts/WorkoutFont.ttf
+        - asset: assets/fonts/PermanentMarker-Regular.ttf
   
   assets:
     - assets/
+    - assets/fonts/
 
 flutter_launcher_icons:
   android: true

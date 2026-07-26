@@ -28,7 +28,9 @@ class _HomePageState extends State<HomePage> {
   Offset _menuPosition = Offset.zero;
   Offset? _globalPointerPosition; 
   
+  // Kept intact as requested!
   DateTime _selectedDate = DateTime.now();
+  
   late ScrollController _calendarScrollController;
   double _lastHapticOffset = 1004.0;
 
@@ -68,7 +70,6 @@ class _HomePageState extends State<HomePage> {
       builder: (context) {
         final d = widget.appState.days.firstWhere((day) => day.id == id, orElse: () => widget.appState.days.first);
         
-        // OPTIMIZATION: In-memory string check prevents blocking main UI thread
         bool hasImage = d.imagePath != null && d.imagePath!.isNotEmpty;
         final bool isDark = widget.appState.isDarkMode;
         final bool useMaterialYou = widget.appState.useMaterialYou;
@@ -314,21 +315,20 @@ class _HomePageState extends State<HomePage> {
       listenable: widget.appState,
       builder: (context, child) {
         
-final bool isDark = widget.appState.isDarkMode;
-final bool useMaterialYou = widget.appState.useMaterialYou;
-final ColorScheme scheme = Theme.of(context).colorScheme;
+        final bool isDark = widget.appState.isDarkMode;
+        final bool useMaterialYou = widget.appState.useMaterialYou;
+        final ColorScheme scheme = Theme.of(context).colorScheme;
 
-// THE FIX: Uses the new string ID to check if it should use the default premium aesthetic
-final bool isPremiumBlack = !useMaterialYou && widget.appState.themePresetId == 'default_black';
+        final bool isPremiumBlack = !useMaterialYou && widget.appState.themePresetId == 'default_black';
 
-final Color bgColor = isPremiumBlack ? (isDark ? Colors.black : const Color(0xFFF2F2F7)) : scheme.surface;
-final Color textColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.onSurface;
-final Color primaryColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary;
-final Color invertedColor = isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary;
-final Color dialogBg = isPremiumBlack ? (isDark ? const Color(0xFF121212) : Colors.white) : scheme.surfaceContainerHigh;
-final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6)) : scheme.surface.withOpacity(0.6);
-final Color borderColor = isPremiumBlack ? (isDark ? Colors.white24 : Colors.black12) : scheme.outlineVariant;
-final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.9) : Colors.white.withOpacity(0.9)) : scheme.surfaceContainerHigh.withOpacity(0.9);
+        final Color bgColor = isPremiumBlack ? (isDark ? Colors.black : const Color(0xFFF2F2F7)) : scheme.surface;
+        final Color textColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.onSurface;
+        final Color primaryColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary;
+        final Color invertedColor = isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary;
+        final Color dialogBg = isPremiumBlack ? (isDark ? const Color(0xFF121212) : Colors.white) : scheme.surfaceContainerHigh;
+        final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6)) : scheme.surface.withOpacity(0.6);
+        final Color borderColor = isPremiumBlack ? (isDark ? Colors.white24 : Colors.black12) : scheme.outlineVariant;
+        final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.9) : Colors.white.withOpacity(0.9)) : scheme.surfaceContainerHigh.withOpacity(0.9);
 
         bool hasProfileImage = widget.appState.profileImagePath != null && widget.appState.profileImagePath!.isNotEmpty;
 
@@ -393,75 +393,74 @@ final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).w
           body: Stack(
             children: [
               Positioned.fill(
-                child: RepaintBoundary(
-                  child: GestureDetector(
-                    onTap: _closeMenu,
-                    behavior: HitTestBehavior.translucent,
-                    child: Listener(
-                      onPointerDown: (e) => _globalPointerPosition = e.position,
-                      onPointerMove: (e) {
-                        if (_globalPointerPosition != null && _selectedDayIdNotifier.value != null) {
-                          if ((e.position - _globalPointerPosition!).distance > 15) {
-                            _closeMenu();
-                          }
+                // THE FIX: Removed the RepaintBoundary from here to prevent video memory leaks during scrolling
+                child: GestureDetector(
+                  onTap: _closeMenu,
+                  behavior: HitTestBehavior.translucent,
+                  child: Listener(
+                    onPointerDown: (e) => _globalPointerPosition = e.position,
+                    onPointerMove: (e) {
+                      if (_globalPointerPosition != null && _selectedDayIdNotifier.value != null) {
+                        if ((e.position - _globalPointerPosition!).distance > 15) {
+                          _closeMenu();
                         }
-                      },
-                      child: days.isEmpty 
-                        ? Padding(
-                            padding: EdgeInsets.only(top: topPadding + 20),
-                            child: const Align(
-                              alignment: Alignment.topCenter,
-                              child: Text("Tap '+' to create your first workout day", style: TextStyle(color: Colors.grey)),
-                            ),
-                          )
-                        : ReorderableListView.builder(
-                            padding: EdgeInsets.only(top: topPadding, bottom: 100, left: 20, right: 20),
-                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                            buildDefaultDragHandles: false,
-                            clipBehavior: Clip.none, 
-                            proxyDecorator: (Widget child, int index, Animation<double> animation) {
-                              return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
-                            },
-                            itemCount: days.length,
-                            onReorderStart: (index) {
-                              HapticFeedback.selectionClick();
-                              
-                              Future.microtask(() {
-                                if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
-                                  _menuOverlayEntry!.remove();
-                                  Overlay.of(context).insert(_menuOverlayEntry!);
-                                }
-                              });
-                            },
-                            onReorder: (oldIndex, newIndex) {
-                              _closeMenu();
-                              widget.appState.reorderDays(oldIndex, newIndex);
-                            },
-                            itemBuilder: (context, index) {
-                              final day = days[index];
-                              return _DayCard(
-                                key: ValueKey(day.id),
-                                day: day,
-                                index: index, 
-                                selectedIdNotifier: _selectedDayIdNotifier, 
-                                isDark: isDark,
-                                useMaterialYou: useMaterialYou,
-                                textColor: textColor,
-                                onTap: () {
-                                  _closeMenu();
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
-                                    ),
-                                  );
-                                },
-                                onOpenMenu: (pos) => _openMenu(day.id, pos),
-                                onCloseMenu: _closeMenu,
-                              );
-                            },
+                      }
+                    },
+                    child: days.isEmpty 
+                      ? Padding(
+                          padding: EdgeInsets.only(top: topPadding + 20),
+                          child: const Align(
+                            alignment: Alignment.topCenter,
+                            child: Text("Tap '+' to create your first workout day", style: TextStyle(color: Colors.grey)),
                           ),
-                    ),
+                        )
+                      : ReorderableListView.builder(
+                          padding: EdgeInsets.only(top: topPadding, bottom: 100, left: 20, right: 20),
+                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                          buildDefaultDragHandles: false,
+                          clipBehavior: Clip.none, 
+                          proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                            return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
+                          },
+                          itemCount: days.length,
+                          onReorderStart: (index) {
+                            HapticFeedback.selectionClick();
+                            
+                            Future.microtask(() {
+                              if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
+                                _menuOverlayEntry!.remove();
+                                Overlay.of(context).insert(_menuOverlayEntry!);
+                              }
+                            });
+                          },
+                          onReorder: (oldIndex, newIndex) {
+                            _closeMenu();
+                            widget.appState.reorderDays(oldIndex, newIndex);
+                          },
+                          itemBuilder: (context, index) {
+                            final day = days[index];
+                            return _DayCard(
+                              key: ValueKey(day.id),
+                              day: day,
+                              index: index, 
+                              selectedIdNotifier: _selectedDayIdNotifier, 
+                              isDark: isDark,
+                              useMaterialYou: useMaterialYou,
+                              textColor: textColor,
+                              onTap: () {
+                                _closeMenu();
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
+                                  ),
+                                );
+                              },
+                              onOpenMenu: (pos) => _openMenu(day.id, pos),
+                              onCloseMenu: _closeMenu,
+                            );
+                          },
+                        ),
                   ),
                 ),
               ),
@@ -523,7 +522,6 @@ final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).w
                                     border: Border.all(color: borderColor, width: 0.5),
                                     image: hasProfileImage
                                         ? DecorationImage(
-                                            // MEMORY FIX: Strict height/width targets prevent decoding 4K photos into RAM
                                             image: ResizeImage(
                                               FileImage(File(widget.appState.profileImagePath!)),
                                               width: 150,
@@ -772,69 +770,66 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 20.0),
-      child: RepaintBoundary(
-        child: ReorderableDelayedDragStartListener(
-          index: widget.index,
-          child: Listener(
-            onPointerDown: _handlePointerDown,
-            onPointerMove: _handlePointerMove,
-            onPointerUp: _handlePointerUp,
-            onPointerCancel: _handlePointerCancel,
-            behavior: HitTestBehavior.opaque,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
-              child: AnimatedScale(
-                scale: baseScale,
-                duration: const Duration(milliseconds: 350),
-                curve: Curves.easeOutBack,
-                child: Container(
-                  height: 180, 
-                  decoration: BoxDecoration(
-                    color: cardColor, 
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
-                    image: hasImage
-                        ? DecorationImage(
-                            // MEMORY FIX: Strict target width/height caps memory usage per card
-                            image: ResizeImage(
-                              FileImage(File(widget.day.imagePath!)),
-                              width: 800,
-                              height: 400,
+      child: ReorderableDelayedDragStartListener(
+        index: widget.index,
+        child: Listener(
+          onPointerDown: _handlePointerDown,
+          onPointerMove: _handlePointerMove,
+          onPointerUp: _handlePointerUp,
+          onPointerCancel: _handlePointerCancel,
+          behavior: HitTestBehavior.opaque,
+          child: ScaleTransition(
+            scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
+            child: AnimatedScale(
+              scale: baseScale,
+              duration: const Duration(milliseconds: 350),
+              curve: Curves.easeOutBack,
+              child: Container(
+                height: 180, 
+                decoration: BoxDecoration(
+                  color: cardColor, 
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
+                  image: hasImage
+                      ? DecorationImage(
+                          image: ResizeImage(
+                            FileImage(File(widget.day.imagePath!)),
+                            width: 800,
+                            height: 400,
+                          ),
+                          fit: BoxFit.cover,
+                          colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
+                        )
+                      : null,
+                ),
+                child: Stack(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.day.name,
+                            maxLines: 3, 
+                            style: TextStyle(
+                              color: displayTextColor, 
+                              fontSize: 22, 
+                              fontWeight: FontWeight.bold,
+                              height: 1.15, 
                             ),
-                            fit: BoxFit.cover,
-                            colorFilter: ColorFilter.mode(Colors.black.withOpacity(0.4), BlendMode.darken),
-                          )
-                        : null,
-                  ),
-                  child: Stack(
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.day.name,
-                              maxLines: 3, 
-                              style: TextStyle(
-                                color: displayTextColor, 
-                                fontSize: 22, 
-                                fontWeight: FontWeight.bold,
-                                height: 1.15, 
-                              ),
-                            ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      if (widget.day.isPinned)
-                        Positioned(
-                          top: 20,
-                          right: 22,
-                          child: Icon(Icons.push_pin, color: displayTextColor.withOpacity(0.8), size: 22),
-                        ),
-                    ],
-                  ),
+                    ),
+                    if (widget.day.isPinned)
+                      Positioned(
+                        top: 20,
+                        right: 22,
+                        child: Icon(Icons.push_pin, color: displayTextColor.withOpacity(0.8), size: 22),
+                      ),
+                  ],
                 ),
               ),
             ),
