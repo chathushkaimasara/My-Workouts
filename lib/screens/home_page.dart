@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart'; 
 import 'package:flutter/services.dart'; 
 import 'package:image_picker/image_picker.dart';
 import 'package:image_cropper/image_cropper.dart'; 
@@ -28,7 +29,6 @@ class _HomePageState extends State<HomePage> {
   Offset _menuPosition = Offset.zero;
   Offset? _globalPointerPosition; 
   
-  // Kept intact as requested!
   DateTime _selectedDate = DateTime.now();
   
   late ScrollController _calendarScrollController;
@@ -336,7 +336,7 @@ class _HomePageState extends State<HomePage> {
         DateTime today = DateTime.now();
         String monthYear = "${_getMonthName(today.month)}, ${today.year}";
         
-        final double topPadding = MediaQuery.of(context).padding.top + 285.0; 
+        final double topPadding = MediaQuery.of(context).padding.top + 365.0; 
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -393,7 +393,6 @@ class _HomePageState extends State<HomePage> {
           body: Stack(
             children: [
               Positioned.fill(
-                // THE FIX: Removed the RepaintBoundary from here to prevent video memory leaks during scrolling
                 child: GestureDetector(
                   onTap: _closeMenu,
                   behavior: HitTestBehavior.translucent,
@@ -642,8 +641,19 @@ class _HomePageState extends State<HomePage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 25),
+                          const SizedBox(height: 20),
                           
+                          // NEW: Workout Timer Widget
+                          _WorkoutTimerWidget(
+                            isDark: isDark,
+                            useMaterialYou: useMaterialYou,
+                            scheme: scheme,
+                            textColor: textColor,
+                            primaryColor: primaryColor,
+                            invertedColor: invertedColor,
+                          ),
+                          
+                          const SizedBox(height: 25),
                           Text('My Schedule >', style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
                         ],
                       ),
@@ -659,6 +669,265 @@ class _HomePageState extends State<HomePage> {
   }
 }
 
+// ---------------------------------------------------------
+// CUSTOM WORKOUT REST TIMER WIDGET
+// ---------------------------------------------------------
+class _WorkoutTimerWidget extends StatefulWidget {
+  final bool isDark;
+  final bool useMaterialYou;
+  final ColorScheme scheme;
+  final Color textColor;
+  final Color primaryColor;
+  final Color invertedColor;
+
+  const _WorkoutTimerWidget({
+    required this.isDark,
+    required this.useMaterialYou,
+    required this.scheme,
+    required this.textColor,
+    required this.primaryColor,
+    required this.invertedColor,
+  });
+
+  @override
+  State<_WorkoutTimerWidget> createState() => _WorkoutTimerWidgetState();
+}
+
+enum TimerState { stopped, running, paused, finished }
+
+class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTickerProviderStateMixin {
+  TimerState _state = TimerState.stopped;
+  int _durationSeconds = 40; 
+  int _remainingSeconds = 40;
+  Timer? _timer;
+  late FixedExtentScrollController _pickerController;
+
+  DateTime _lastTapTime = DateTime.now();
+  double _buttonScale = 1.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _pickerController = FixedExtentScrollController(initialItem: 7);
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    _pickerController.dispose();
+    super.dispose();
+  }
+
+  void _triggerBounceAnimation() {
+    setState(() => _buttonScale = 1.15);
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (mounted) setState(() => _buttonScale = 1.0);
+    });
+  }
+
+  void _handleTap() {
+    final now = DateTime.now();
+    final isDoubleTap = now.difference(_lastTapTime).inMilliseconds < 300;
+    _lastTapTime = now;
+
+    _triggerBounceAnimation();
+
+    if (isDoubleTap && _state != TimerState.stopped) {
+      HapticFeedback.mediumImpact();
+      _resetTimer();
+    } else {
+      HapticFeedback.lightImpact();
+      if (_state == TimerState.stopped || _state == TimerState.paused) {
+        _startTimer();
+      } else if (_state == TimerState.running) {
+        _pauseTimer();
+      } else if (_state == TimerState.finished) {
+        _resetTimer();
+      }
+    }
+  }
+
+  void _startTimer() {
+    setState(() => _state = TimerState.running);
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_remainingSeconds > 0) {
+          _remainingSeconds--;
+        } else {
+          _state = TimerState.finished;
+          _timer?.cancel();
+          HapticFeedback.heavyImpact(); 
+        }
+      });
+    });
+  }
+
+  void _pauseTimer() {
+    _timer?.cancel();
+    setState(() => _state = TimerState.paused);
+  }
+
+  void _resetTimer() {
+    _timer?.cancel();
+    setState(() {
+      _state = TimerState.stopped;
+      _remainingSeconds = _durationSeconds;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final Color trackColor = widget.useMaterialYou
+        ? widget.scheme.surfaceContainerHigh
+        : (widget.isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05));
+
+    return SizedBox(
+      height: 48, 
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          // 1. Play/Pause/Restart Action Button
+          GestureDetector(
+            onTap: _handleTap,
+            onLongPress: () {
+              if (_state != TimerState.stopped) {
+                HapticFeedback.mediumImpact();
+                _triggerBounceAnimation();
+                _resetTimer();
+              }
+            },
+            behavior: HitTestBehavior.opaque,
+            child: AnimatedScale(
+              scale: _buttonScale,
+              duration: const Duration(milliseconds: 150),
+              curve: Curves.easeOutBack,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 300),
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: _state == TimerState.running ? trackColor : widget.primaryColor,
+                  border: Border.all(
+                    color: _state == TimerState.running ? widget.textColor.withOpacity(0.1) : Colors.transparent,
+                    width: 1,
+                  ),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (child, animation) => ScaleTransition(
+                    scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack),
+                    child: child,
+                  ),
+                  child: Icon(
+                    _state == TimerState.running
+                        ? Icons.pause_rounded
+                        : _state == TimerState.finished
+                            ? Icons.replay_rounded
+                            : Icons.play_arrow_rounded,
+                    key: ValueKey(_state),
+                    color: _state == TimerState.running ? widget.textColor : widget.invertedColor,
+                    size: 24, 
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
+
+          // 2. Fluid Progress Bar
+          Expanded(
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // THE FIX: The Look-Ahead Trick
+                // We tell the bar to instantly target the NEXT second so the animation starts the millisecond you hit play
+                double targetSeconds = _remainingSeconds.toDouble();
+                if (_state == TimerState.running && _remainingSeconds > 0) {
+                  targetSeconds -= 1.0;
+                }
+
+                double fillPercentage = _durationSeconds == 0 ? 0 : 1.0 - (targetSeconds / _durationSeconds);
+                if (_state == TimerState.stopped) fillPercentage = 0.0;
+
+                return Container(
+                  height: 24, 
+                  decoration: BoxDecoration(
+                    color: trackColor,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  alignment: Alignment.centerLeft,
+                  child: AnimatedContainer(
+                    duration: Duration(milliseconds: _state == TimerState.running ? 1000 : 300),
+                    curve: _state == TimerState.running ? Curves.linear : Curves.easeOutCubic,
+                    width: constraints.maxWidth * fillPercentage,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      color: widget.primaryColor,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+          const SizedBox(width: 12),
+
+          // 3. Seconds Picker
+          SizedBox(
+            width: 60,
+            height: 48,
+            child: IgnorePointer(
+              ignoring: _state == TimerState.running,
+              child: ShaderMask(
+                shaderCallback: (Rect bounds) {
+                  return const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
+                    stops: [0.0, 0.35, 0.65, 1.0],
+                  ).createShader(bounds);
+                },
+                blendMode: BlendMode.dstIn,
+                child: CupertinoPicker(
+                  scrollController: _pickerController,
+                  itemExtent: 32,
+                  diameterRatio: 1.2,
+                  squeeze: 1.1,
+                  selectionOverlay: const CupertinoPickerDefaultSelectionOverlay(background: Colors.transparent),
+                  onSelectedItemChanged: (index) {
+                    HapticFeedback.selectionClick();
+                    setState(() {
+                      _durationSeconds = (index + 1) * 5;
+                      _remainingSeconds = _durationSeconds; 
+                      _state = TimerState.stopped;
+                    });
+                  },
+                  children: List.generate(60, (index) {
+                    int secs = (index + 1) * 5;
+                    return Center(
+                      child: Text(
+                        '${secs}s',
+                        style: TextStyle(
+                          color: widget.textColor, 
+                          fontSize: 24, 
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    );
+                  }),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// CUSTOM DAY CARD WIDGET
+// ---------------------------------------------------------
 class _DayCard extends StatefulWidget {
   final WorkoutDay day;
   final int index; 
