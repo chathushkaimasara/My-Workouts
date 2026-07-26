@@ -1,6 +1,6 @@
 <p align="center">
   <br/>
-  <img src="assets/app_icon.png" width="200" alt="My Workouts Icon" />
+  <img src="assets/app_icon.webp" width="200" alt="My Workouts Icon" />
 </p>
 
 <h1 align="center">My Workouts</h1>
