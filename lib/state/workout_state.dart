@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data'; 
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -131,15 +132,29 @@ class WorkoutState extends ChangeNotifier {
     return sortedList;
   }
 
-  void addWeightRecord(String exerciseName, double weight, String unit) {
-    if (!exerciseProgress.containsKey(exerciseName)) {
-      exerciseProgress[exerciseName] = [];
-    }
-    exerciseProgress[exerciseName]!.add(WeightRecord(date: DateTime.now(), weight: weight, unit: unit));
-    _saveData();
+  double _calculateUniversal1RM(double weight, String unit, int reps) {
+    double normKg = unit == 'lbs' ? weight / 2.20462 : weight;
+    if (reps <= 1) return normKg;
+    return normKg * (1 + (reps / 30.0)); 
   }
 
-  // NEW: Instantly deletes accidental weights and cleans up the map
+  bool addWeightRecord(String exerciseName, double weight, String unit, int reps) {
+    bool isNewPR = false;
+    double new1RM = _calculateUniversal1RM(weight, unit, reps);
+
+    if (!exerciseProgress.containsKey(exerciseName) || exerciseProgress[exerciseName]!.isEmpty) {
+      isNewPR = true;
+      exerciseProgress[exerciseName] = [];
+    } else {
+      double currentMax1RM = exerciseProgress[exerciseName]!.map((r) => _calculateUniversal1RM(r.weight, r.unit, r.reps)).reduce(math.max);
+      if (new1RM > currentMax1RM) isNewPR = true;
+    }
+
+    exerciseProgress[exerciseName]!.add(WeightRecord(date: DateTime.now(), weight: weight, unit: unit, reps: reps));
+    _saveData();
+    return isNewPR;
+  }
+
   void deleteWeightRecord(String exerciseName, WeightRecord record) {
     if (exerciseProgress.containsKey(exerciseName)) {
       exerciseProgress[exerciseName]!.remove(record);
@@ -325,11 +340,63 @@ class WorkoutState extends ChangeNotifier {
     _saveData();
   }
 
+  // THE FIX: Smart Migration Engine handles orphaned chart data perfectly
   void renameWorkout(String dayId, String workoutId, String newName, String newReps) {
     var day = days.firstWhere((d) => d.id == dayId);
     var workout = day.workouts.firstWhere((w) => w.id == workoutId);
+
+    // 1. Format the old name exactly how the progress map stores it
+    String oldNameClean = workout.name.trim();
+    if (oldNameClean.isNotEmpty) {
+      oldNameClean = oldNameClean[0].toUpperCase() + oldNameClean.substring(1).toLowerCase();
+    }
+
     workout.name = newName;
     if (!workout.isDivider) workout.reps = newReps;
+
+    // 2. Format the new name exactly how the progress map needs it
+    String newNameClean = newName.trim();
+    if (newNameClean.isNotEmpty) {
+      newNameClean = newNameClean[0].toUpperCase() + newNameClean.substring(1).toLowerCase();
+    }
+
+    // 3. If the exercise was renamed and it has a chart history...
+    if (!workout.isDivider && oldNameClean != newNameClean && oldNameClean.isNotEmpty) {
+      if (exerciseProgress.containsKey(oldNameClean)) {
+        
+        // Check if ANY other active exercise in the app is still using the old name
+        bool isStillUsed = false;
+        for (var d in days) {
+          for (var w in d.workouts) {
+            if (!w.isDivider && w.id != workoutId) {
+              String wName = w.name.trim();
+              if (wName.isNotEmpty) {
+                wName = wName[0].toUpperCase() + wName.substring(1).toLowerCase();
+                if (wName == oldNameClean) {
+                  isStillUsed = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (isStillUsed) break;
+        }
+
+        // 4. If it's safe, seamlessly transfer all past data to the new name!
+        if (!isStillUsed) {
+          if (!exerciseProgress.containsKey(newNameClean)) {
+            exerciseProgress[newNameClean] = [];
+          }
+          exerciseProgress[newNameClean]!.addAll(exerciseProgress[oldNameClean]!);
+          // Sort mathematically by date so the chart line draws perfectly
+          exerciseProgress[newNameClean]!.sort((a, b) => a.date.compareTo(b.date));
+          
+          // Delete the old orphaned record memory
+          exerciseProgress.remove(oldNameClean);
+        }
+      }
+    }
+
     _saveData();
   }
 

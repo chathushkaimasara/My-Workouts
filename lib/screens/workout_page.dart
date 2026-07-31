@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart'; 
 import '../state/workout_state.dart';
 import '../models/workout_models.dart';
 import '../widgets/bouncing_widget.dart';
@@ -22,17 +24,62 @@ class _WorkoutPageState extends State<WorkoutPage> {
   final GlobalKey _plusButtonKey = GlobalKey();
   OverlayEntry? _addMenuOverlayEntry;
 
+  Timer? _restTimer;
+  int _restSecondsRemaining = 0;
+  int _totalRestSeconds = 60;
+  bool _isResting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRestTime();
+  }
+
+  void _loadRestTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (mounted) {
+      setState(() {
+        _totalRestSeconds = prefs.getInt('workout_timer_duration') ?? 60;
+      });
+    }
+  }
+
   @override
   void dispose() {
-    _addMenuOverlayEntry?.remove();
+    _closeAddMenu();
+    _restTimer?.cancel();
     super.dispose();
   }
 
-  void _closeAddMenu() {
-    if (_addMenuOverlayEntry != null) {
-      _addMenuOverlayEntry!.remove();
-      _addMenuOverlayEntry = null;
+  void _startRestTimer() {
+    _restTimer?.cancel();
+    setState(() {
+      _restSecondsRemaining = _totalRestSeconds;
+      _isResting = true;
+    });
+    _restTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (_restSecondsRemaining > 0) {
+        setState(() => _restSecondsRemaining--);
+      } else {
+        _stopRestTimer();
+        HapticFeedback.heavyImpact(); 
+      }
+    });
+  }
+
+  void _stopRestTimer() {
+    _restTimer?.cancel();
+    if (mounted) {
+      setState(() => _isResting = false);
     }
+  }
+
+  void _closeAddMenu() {
+    // THE FIX: Strict mounted check strictly prevents overlay memory leaks on rapid navigation
+    if (_addMenuOverlayEntry != null && _addMenuOverlayEntry!.mounted) {
+      _addMenuOverlayEntry!.remove();
+    }
+    _addMenuOverlayEntry = null;
   }
 
   void _closeMenu() {
@@ -65,9 +112,18 @@ class _WorkoutPageState extends State<WorkoutPage> {
     Share.share(shareText.trim());
   }
 
+  void _safeCloseDialog(BuildContext dialogContext, VoidCallback action) {
+    FocusManager.instance.primaryFocus?.unfocus();
+    action();
+    Future.delayed(const Duration(milliseconds: 100), () {
+      if (dialogContext.mounted) Navigator.pop(dialogContext);
+    });
+  }
+
   void _showAddWorkoutDialog(BuildContext context, bool isDark, bool useMaterialYou, ColorScheme scheme, Color dialogBg, Color textColor) {
     final TextEditingController nameController = TextEditingController();
     final TextEditingController repsController = TextEditingController();
+    final TextEditingController rpeController = TextEditingController(); 
     
     final Color hintColor = useMaterialYou ? scheme.onSurfaceVariant : Colors.grey;
     final Color underlineColor = useMaterialYou ? scheme.outline : Colors.grey.shade600;
@@ -84,7 +140,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
           child: FadeTransition(opacity: animation, child: child),
         );
       },
-      pageBuilder: (context, animation, secondaryAnimation) {
+      pageBuilder: (dialogContext, animation, secondaryAnimation) { 
         return AlertDialog(
           backgroundColor: dialogBg,
           surfaceTintColor: Colors.transparent, 
@@ -93,22 +149,39 @@ class _WorkoutPageState extends State<WorkoutPage> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _buildThemedTextField(controller: nameController, hint: 'e.g., bench press', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
+              _buildThemedTextField(controller: nameController, hint: 'e.g., Bench Press', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
               const SizedBox(height: 15),
-              _buildThemedTextField(controller: repsController, hint: 'e.g., 6', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
+              Row(
+                children: [
+                  Expanded(
+                    flex: 2,
+                    child: _buildThemedTextField(controller: repsController, hint: 'Reps (e.g., 8)', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
+                  ),
+                  const SizedBox(width: 15),
+                  Expanded(
+                    flex: 1,
+                    child: _buildThemedTextField(controller: rpeController, hint: 'RPE (Opt.)', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
+                  ),
+                ],
+              ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => _safeCloseDialog(dialogContext, () {}),
               child: Text('Cancel', style: TextStyle(color: hintColor)),
             ),
             TextButton(
               onPressed: () {
-                if (nameController.text.trim().isNotEmpty) {
-                  widget.appState.addWorkout(widget.dayId, nameController.text.trim(), repsController.text.trim());
-                }
-                Navigator.pop(context);
+                _safeCloseDialog(dialogContext, () {
+                  if (nameController.text.trim().isNotEmpty) {
+                    String finalReps = repsController.text.trim();
+                    if (rpeController.text.trim().isNotEmpty) {
+                      finalReps += ' • RPE ${rpeController.text.trim()}';
+                    }
+                    widget.appState.addWorkout(widget.dayId, nameController.text.trim(), finalReps);
+                  }
+                });
               },
               child: Text('Add', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
             ),
@@ -116,15 +189,26 @@ class _WorkoutPageState extends State<WorkoutPage> {
         );
       },
     ).then((_) {
-      // MEMORY LEAK FIX: Disposes the controllers instantly when the dialog route is closed!
-      nameController.dispose();
-      repsController.dispose();
+      Future.delayed(const Duration(milliseconds: 400), () {
+        nameController.dispose();
+        repsController.dispose();
+        rpeController.dispose();
+      });
     });
   }
 
   void _showEditDialog(BuildContext context, WorkoutItem item, bool isDark, bool useMaterialYou, ColorScheme scheme, Color dialogBg, Color textColor) {
+    String baseReps = item.reps;
+    String baseRpe = '';
+    if (item.reps.contains(' • RPE ')) {
+      var parts = item.reps.split(' • RPE ');
+      baseReps = parts[0];
+      baseRpe = parts.length > 1 ? parts[1] : '';
+    }
+
     final TextEditingController nameController = TextEditingController(text: item.name);
-    final TextEditingController repsController = TextEditingController(text: item.reps);
+    final TextEditingController repsController = TextEditingController(text: baseReps);
+    final TextEditingController rpeController = TextEditingController(text: baseRpe);
     
     final Color hintColor = useMaterialYou ? scheme.onSurfaceVariant : Colors.grey;
     final Color underlineColor = useMaterialYou ? scheme.outline : Colors.grey.shade600;
@@ -141,7 +225,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
           child: FadeTransition(opacity: animation, child: child),
         );
       },
-      pageBuilder: (context, animation, secondaryAnimation) {
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return AlertDialog(
           backgroundColor: dialogBg,
           surfaceTintColor: Colors.transparent, 
@@ -153,21 +237,38 @@ class _WorkoutPageState extends State<WorkoutPage> {
               _buildThemedTextField(controller: nameController, hint: item.isDivider ? 'Optional text' : 'Name', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
               if (!item.isDivider) ...[
                 const SizedBox(height: 15),
-                _buildThemedTextField(controller: repsController, hint: 'Reps', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
+                Row(
+                  children: [
+                    Expanded(
+                      flex: 2,
+                      child: _buildThemedTextField(controller: repsController, hint: 'Reps', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
+                    ),
+                    const SizedBox(width: 15),
+                    Expanded(
+                      flex: 1,
+                      child: _buildThemedTextField(controller: rpeController, hint: 'RPE (Opt.)', textColor: textColor, hintColor: hintColor, underlineColor: underlineColor),
+                    ),
+                  ],
+                ),
               ]
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () => _safeCloseDialog(dialogContext, () {}),
               child: Text('Cancel', style: TextStyle(color: hintColor)),
             ),
             TextButton(
               onPressed: () {
-                if (item.isDivider || nameController.text.trim().isNotEmpty) {
-                  widget.appState.renameWorkout(widget.dayId, item.id, nameController.text.trim(), item.isDivider ? '' : repsController.text.trim());
-                }
-                Navigator.pop(context);
+                _safeCloseDialog(dialogContext, () {
+                  if (item.isDivider || nameController.text.trim().isNotEmpty) {
+                    String finalReps = repsController.text.trim();
+                    if (!item.isDivider && rpeController.text.trim().isNotEmpty) {
+                      finalReps += ' • RPE ${rpeController.text.trim()}';
+                    }
+                    widget.appState.renameWorkout(widget.dayId, item.id, nameController.text.trim(), item.isDivider ? '' : finalReps);
+                  }
+                });
               },
               child: Text('Save', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
             ),
@@ -175,9 +276,11 @@ class _WorkoutPageState extends State<WorkoutPage> {
         );
       },
     ).then((_) {
-      // MEMORY LEAK FIX: Disposes the controllers instantly when the dialog route is closed!
-      nameController.dispose();
-      repsController.dispose();
+      Future.delayed(const Duration(milliseconds: 400), () {
+        nameController.dispose();
+        repsController.dispose();
+        rpeController.dispose();
+      });
     });
   }
 
@@ -206,7 +309,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
     
     final position = renderBox.localToGlobal(Offset.zero);
 
-    // MATERIAL YOU ADAPTATION FOR MENU
     final Color menuBg = useMaterialYou ? scheme.surfaceContainer : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
     final Color dividerColor = useMaterialYou ? scheme.outlineVariant : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1));
     final Color dialogBg = useMaterialYou ? scheme.surfaceContainerHigh : (isDark ? const Color(0xFF121212) : Colors.white);
@@ -308,7 +410,6 @@ class _WorkoutPageState extends State<WorkoutPage> {
         final bool useMaterialYou = widget.appState.useMaterialYou;
         final ColorScheme scheme = Theme.of(context).colorScheme;
 
-        // THE FIX: Uses the new string ID to check if it should use the default premium black aesthetic
         final bool isPremiumBlack = !useMaterialYou && widget.appState.themePresetId == 'default_black';
 
         final Color bgColor = isPremiumBlack ? (isDark ? Colors.black : const Color(0xFFF2F2F7)) : scheme.surface;
@@ -316,60 +417,69 @@ class _WorkoutPageState extends State<WorkoutPage> {
         final Color dialogBg = isPremiumBlack ? (isDark ? const Color(0xFF121212) : Colors.white) : scheme.surfaceContainerHigh;
         final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.35) : Colors.white.withOpacity(0.7)) : scheme.surface.withOpacity(0.7);
         final Color cardColor = isPremiumBlack ? (isDark ? const Color(0xFF1C1C1E) : Colors.white) : scheme.surfaceContainerHigh;
-
+        final Color primaryColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary;
+        final Color invertedColor = isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary;
 
         final day = widget.appState.days.firstWhere((d) => d.id == widget.dayId, orElse: () => WorkoutDay(id: '', name: 'Error', workouts: []));
         final bool hasCompleted = widget.appState.hasCompletedWorkouts(widget.dayId);
         
         final int titleLength = day.name.length;
         final double extraPadding = titleLength > 30 ? 80.0 : (titleLength > 15 ? 40.0 : 0.0);
-        final double topPadding = MediaQuery.of(context).padding.top + 160.0 + extraPadding;
+        final double topPadding = MediaQuery.of(context).padding.top + 129.0 + extraPadding;
+        
+        String timeFormatted = '${(_restSecondsRemaining ~/ 60).toString().padLeft(2, '0')}:${(_restSecondsRemaining % 60).toString().padLeft(2, '0')}';
 
         return Scaffold(
           backgroundColor: bgColor,
           body: Stack(
             children: [
               Positioned.fill(
-                child: RepaintBoundary(
-                  child: GestureDetector(
-                    onTap: _closeMenu,
-                    onPanStart: (_) => _closeMenu(),
-                    behavior: HitTestBehavior.translucent,
-                    child: ReorderableListView.builder(
-                      padding: EdgeInsets.only(top: topPadding, bottom: 100, left: 20, right: 20),
-                      physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()), 
-                      buildDefaultDragHandles: false,
-                      clipBehavior: Clip.none, 
-                      proxyDecorator: (Widget child, int index, Animation<double> animation) {
-                        return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
-                      },
-                      itemCount: day.workouts.length,
-                      onReorder: (oldIndex, newIndex) {
-                        _closeMenu();
-                        widget.appState.reorderWorkouts(widget.dayId, oldIndex, newIndex);
-                      },
-                      itemBuilder: (context, index) {
-                        final item = day.workouts[index];
-                        return _WorkoutRow(
-                          key: ValueKey(item.id),
-                          item: item,
-                          index: index,
-                          isSelected: _selectedWorkoutId == item.id,
-                          isDark: isDark,
-                          useMaterialYou: useMaterialYou,
-                          scheme: scheme,
-                          textColor: textColor,
-                          onToggleComplete: () {
-                            _closeMenu();
-                            if (!item.isDivider) {
-                              widget.appState.toggleWorkoutCompletion(widget.dayId, item.id);
+                child: GestureDetector(
+                  onTap: _closeMenu,
+                  onPanStart: (_) => _closeMenu(),
+                  behavior: HitTestBehavior.translucent,
+                  child: ReorderableListView.builder(
+                    padding: EdgeInsets.only(top: topPadding, bottom: 100, left: 20, right: 20),
+                    physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()), 
+                    buildDefaultDragHandles: false,
+                    clipBehavior: Clip.none, 
+                    proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                      return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
+                    },
+                    itemCount: day.workouts.length,
+                    onReorder: (oldIndex, newIndex) {
+                      _closeMenu();
+                      widget.appState.reorderWorkouts(widget.dayId, oldIndex, newIndex);
+                    },
+                    itemBuilder: (context, index) {
+                      final item = day.workouts[index];
+                      return _WorkoutRow(
+                        key: ValueKey(item.id),
+                        item: item,
+                        index: index,
+                        isSelected: _selectedWorkoutId == item.id,
+                        isDark: isDark,
+                        useMaterialYou: useMaterialYou,
+                        scheme: scheme,
+                        textColor: textColor,
+                        onToggleComplete: () {
+                          _closeMenu();
+                          if (!item.isDivider) {
+                            bool wasCompleted = item.isCompleted;
+                            widget.appState.toggleWorkoutCompletion(widget.dayId, item.id);
+                            
+                            if (!wasCompleted) {
+                              HapticFeedback.lightImpact();
+                              _startRestTimer();
+                            } else {
+                              if (_isResting) _stopRestTimer();
                             }
-                          },
-                          onOpenMenu: (pos) => _openMenu(item.id, pos),
-                          onCloseMenu: _closeMenu,
-                        );
-                      },
-                    ),
+                          }
+                        },
+                        onOpenMenu: (pos) => _openMenu(item.id, pos),
+                        onCloseMenu: _closeMenu,
+                      );
+                    },
                   ),
                 ),
               ),
@@ -378,90 +488,171 @@ class _WorkoutPageState extends State<WorkoutPage> {
                 top: 0,
                 left: 0,
                 right: 0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0), 
-                    child: Container(
-                      color: frostedBg, 
-                      padding: EdgeInsets.only(
-                        top: MediaQuery.of(context).padding.top + 10,
-                        left: 20, 
-                        right: 20,
-                        bottom: 20,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              BouncingWidget(
-                                onTap: () {
-                                  _closeAddMenu();
-                                  Navigator.pop(context);
-                                },
-                                child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)),
-                              ),
-                              SizedBox(
-                                width: 144, 
-                                height: 40,
-                                child: Stack(
-                                  clipBehavior: Clip.none,
-                                  alignment: Alignment.centerRight,
-                                  children: [
-                                    AnimatedPositioned(
-                                      duration: const Duration(milliseconds: 400),
-                                      curve: Curves.easeOutBack,
-                                      right: hasCompleted ? 104.0 : 52.0, 
-                                      child: IgnorePointer(
-                                        ignoring: !hasCompleted,
-                                        child: AnimatedOpacity(
-                                          duration: const Duration(milliseconds: 250),
-                                          opacity: hasCompleted ? 1.0 : 0.0, 
-                                          child: BouncingWidget(
-                                            onTap: () => widget.appState.resetCompletedWorkouts(widget.dayId),
-                                            child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.refresh, color: textColor, size: 22)),
+                // THE FIX: Wrapped the expensive blur in a RepaintBoundary so the GPU doesn't recalculate it while scrolling
+                child: RepaintBoundary(
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 10.0, sigmaY: 10.0), 
+                      child: Container(
+                        color: frostedBg, 
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top + 10,
+                          left: 20, 
+                          right: 20,
+                          bottom: 20,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                BouncingWidget(
+                                  onTap: () {
+                                    _closeAddMenu();
+                                    Navigator.pop(context);
+                                  },
+                                  child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)),
+                                ),
+                                SizedBox(
+                                  width: 144, 
+                                  height: 40,
+                                  child: Stack(
+                                    clipBehavior: Clip.none,
+                                    alignment: Alignment.centerRight,
+                                    children: [
+                                      AnimatedPositioned(
+                                        duration: const Duration(milliseconds: 400),
+                                        curve: Curves.easeOutBack,
+                                        right: hasCompleted ? 104.0 : 52.0, 
+                                        child: IgnorePointer(
+                                          ignoring: !hasCompleted,
+                                          child: AnimatedOpacity(
+                                            duration: const Duration(milliseconds: 250),
+                                            opacity: hasCompleted ? 1.0 : 0.0, 
+                                            child: BouncingWidget(
+                                              onTap: () => widget.appState.resetCompletedWorkouts(widget.dayId),
+                                              child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.refresh, color: textColor, size: 22)),
+                                            ),
                                           ),
                                         ),
                                       ),
-                                    ),
-                                    Positioned(
-                                      right: 52.0,
-                                      child: BouncingWidget(
-                                        onTap: () => _shareWorkout(day),
-                                        child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.ios_share, color: textColor, size: 20)),
+                                      Positioned(
+                                        right: 52.0,
+                                        child: BouncingWidget(
+                                          onTap: () => _shareWorkout(day),
+                                          child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.ios_share, color: textColor, size: 20)),
+                                        ),
                                       ),
-                                    ),
-                                    Positioned(
-                                      right: 0.0,
-                                      child: BouncingWidget(
-                                        key: _plusButtonKey, 
-                                        onTap: () => _showAddMenu(isDark, useMaterialYou, scheme, textColor),
-                                        child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.add, color: textColor, size: 22)),
+                                      Positioned(
+                                        right: 0.0,
+                                        child: BouncingWidget(
+                                          key: _plusButtonKey, 
+                                          onTap: () => _showAddMenu(isDark, useMaterialYou, scheme, textColor),
+                                          child: CircleAvatar(radius: 20, backgroundColor: cardColor, child: Icon(Icons.add, color: textColor, size: 22)),
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              )
-                            ],
-                          ),
-                          const SizedBox(height: 25),
-                          
-                          Text(
-                            day.name, 
-                            maxLines: 3, 
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: textColor, 
-                              fontSize: 34, 
-                              fontWeight: FontWeight.bold,
-                              height: 1.15, 
+                                    ],
+                                  ),
+                                )
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 25),
+                            
+                            Text(
+                              day.name, 
+                              maxLines: 3, 
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: textColor, 
+                                fontSize: 34, 
+                                fontWeight: FontWeight.bold,
+                                height: 1.15, 
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
+                  ),
+                ),
+              ),
+
+              // THE FIX: Changed the anchor to pop up perfectly from the bottom of the screen!
+              AnimatedPositioned(
+                bottom: _isResting ? MediaQuery.of(context).padding.bottom + 30 : -150,
+                left: 15,
+                right: 15,
+                duration: const Duration(milliseconds: 500),
+                curve: Curves.easeOutBack,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: useMaterialYou ? scheme.surfaceContainerHigh : (isDark ? const Color(0xFF141414) : Colors.white),
+                    borderRadius: BorderRadius.circular(50),
+                    border: Border.all(color: isDark ? Colors.white12 : Colors.black12, width: 1),
+                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 8))],
+                  ),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        onTap: _stopRestTimer,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFB74B4B), 
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.stop_rounded, color: Colors.white, size: 28),
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'ACTIVE REST', 
+                              style: TextStyle(color: Colors.grey.shade500, fontSize: 10, fontWeight: FontWeight.w800, letterSpacing: 1.2)
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              timeFormatted, 
+                              style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)
+                            ),
+                          ],
+                        ),
+                      ),
+
+                      GestureDetector(
+                        onTap: () {
+                          HapticFeedback.lightImpact();
+                          setState(() => _restSecondsRemaining += 15);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 10.0),
+                          child: Text('+15s', style: TextStyle(color: textColor.withOpacity(0.7), fontWeight: FontWeight.bold, fontSize: 14)),
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+
+                      GestureDetector(
+                        onTap: _stopRestTimer,
+                        child: Container(
+                          width: 48,
+                          height: 48,
+                          decoration: BoxDecoration(
+                            color: invertedColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(Icons.skip_next_rounded, color: primaryColor, size: 26), 
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
@@ -469,6 +660,27 @@ class _WorkoutPageState extends State<WorkoutPage> {
               if (_selectedWorkoutId != null) ...[
                 Builder(builder: (context) {
                   final w = day.workouts.firstWhere((w) => w.id == _selectedWorkoutId);
+                  
+                  String? highestDisplay;
+                  if (!w.isDivider && w.name.trim().isNotEmpty) {
+                    String cleanName = w.name.trim();
+                    cleanName = cleanName[0].toUpperCase() + cleanName.substring(1).toLowerCase();
+                    
+                    List<WeightRecord> records = widget.appState.exerciseProgress[cleanName] ?? [];
+                    if (records.isNotEmpty) {
+                      WeightRecord highest = records.first;
+                      double highestNorm = highest.unit == 'kg' ? highest.weight * 2.20462 : highest.weight;
+                      for (var r in records) {
+                        double norm = r.unit == 'kg' ? r.weight * 2.20462 : r.weight;
+                        if (norm >= highestNorm) { 
+                          highest = r; 
+                          highestNorm = norm; 
+                        }
+                      }
+                      highestDisplay = "${highest.weight} ${highest.unit}";
+                    }
+                  }
+
                   return _CustomFloatingMenu(
                     position: _menuPosition,
                     isDivider: w.isDivider,
@@ -477,6 +689,7 @@ class _WorkoutPageState extends State<WorkoutPage> {
                     useMaterialYou: useMaterialYou,
                     scheme: scheme,
                     textColor: textColor,
+                    highestWeight: highestDisplay, 
                     onEdit: () {
                       _closeMenu();
                       _showEditDialog(context, w, isDark, useMaterialYou, scheme, dialogBg, textColor);
@@ -600,7 +813,7 @@ class _WorkoutRowState extends State<_WorkoutRow> with SingleTickerProviderState
     final screenWidth = MediaQuery.of(context).size.width;
     double baseScale = _isPressed ? 0.96 : (widget.isSelected ? 1.04 : 1.0);
 
-    return RepaintBoundary(
+    return RepaintBoundary( 
       child: ReorderableDelayedDragStartListener(
         index: widget.index,
         child: Listener(
@@ -701,6 +914,7 @@ class _CustomFloatingMenu extends StatelessWidget {
   final bool useMaterialYou;
   final ColorScheme scheme;
   final Color textColor;
+  final String? highestWeight; 
   final VoidCallback onEdit;
   final VoidCallback onRemove;
 
@@ -712,6 +926,7 @@ class _CustomFloatingMenu extends StatelessWidget {
     required this.useMaterialYou,
     required this.scheme,
     required this.textColor,
+    this.highestWeight,
     required this.onEdit,
     required this.onRemove,
   });
@@ -719,7 +934,9 @@ class _CustomFloatingMenu extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
-    double menuHeight = 115.0;
+    
+    double menuHeight = highestWeight != null ? 180.0 : 115.0;
+    
     double topPos = (position.dy - menuHeight - 15).clamp(50.0, MediaQuery.of(context).size.height - menuHeight);
     double leftPos = (position.dx - 100).clamp(15.0, screenWidth - 215.0);
 
@@ -753,6 +970,33 @@ class _CustomFloatingMenu extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              
+              if (highestWeight != null) ...[
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                  decoration: const BoxDecoration(
+                    color: Colors.transparent, 
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(18)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.emoji_events, color: textColor.withOpacity(0.6), size: 20),
+                      const SizedBox(width: 14),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('All-Time High', style: TextStyle(color: textColor.withOpacity(0.5), fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text(highestWeight!, style: TextStyle(color: textColor.withOpacity(0.8), fontSize: 16, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Divider(height: 1, color: dividerColor),
+              ],
+              
               _buildMenuItem(Icons.edit_outlined, renameText, textColor, onEdit),
               Divider(height: 1, color: dividerColor),
               _buildMenuItem(Icons.delete_outline, 'Remove', Colors.redAccent, onRemove),

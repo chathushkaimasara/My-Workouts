@@ -1,7 +1,13 @@
 import 'dart:ui';
+import 'dart:io';
+import 'dart:math' as math; 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; 
 import 'package:fl_chart/fl_chart.dart'; 
+import 'package:confetti/confetti.dart'; 
+import 'package:screenshot/screenshot.dart'; 
+import 'package:path_provider/path_provider.dart'; 
+import 'package:share_plus/share_plus.dart'; 
 import '../state/workout_state.dart';
 import '../models/workout_models.dart';
 import '../widgets/bouncing_widget.dart';
@@ -20,12 +26,16 @@ class _ProgressPageState extends State<ProgressPage> {
   final ValueNotifier<String?> _selectedFilterNotifier = ValueNotifier(null); 
   final ValueNotifier<bool> _pageReadyNotifier = ValueNotifier(false); 
   
+  late ConfettiController _confettiController; 
+
   OverlayEntry? _addWeightOverlayEntry; 
   TextEditingController? _weightController; 
+  TextEditingController? _repsController; 
 
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 2));
     Future.delayed(const Duration(milliseconds: 200), () {
       if (mounted) _pageReadyNotifier.value = true;
     });
@@ -33,26 +43,29 @@ class _ProgressPageState extends State<ProgressPage> {
 
   @override
   void dispose() {
+    _confettiController.dispose();
     _selectedFilterNotifier.dispose();
     _pageReadyNotifier.dispose(); 
-    _addWeightOverlayEntry?.remove();
-    _weightController?.dispose(); 
+    _closeAddWeightDialog(); 
     super.dispose();
   }
 
   void _closeAddWeightDialog() {
-    if (_addWeightOverlayEntry != null) {
+    if (_addWeightOverlayEntry != null && _addWeightOverlayEntry!.mounted) {
       _addWeightOverlayEntry!.remove();
-      _addWeightOverlayEntry = null;
-      _weightController?.dispose();
-      _weightController = null;
     }
+    _addWeightOverlayEntry = null;
+    _weightController?.dispose();
+    _weightController = null;
+    _repsController?.dispose();
+    _repsController = null;
   }
 
   void _showAddWeightDialog(BuildContext context, String exerciseName) {
     if (_addWeightOverlayEntry != null) return;
     
     _weightController = TextEditingController();
+    _repsController = TextEditingController(text: "1"); 
 
     _addWeightOverlayEntry = OverlayEntry(
       builder: (context) {
@@ -98,28 +111,52 @@ class _ProgressPageState extends State<ProgressPage> {
                         return AlertDialog(
                           backgroundColor: dialogBg,
                           surfaceTintColor: Colors.transparent, 
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                          title: Text('Record Weight', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+                          title: Text('Record Set', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
                           content: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              TextField(
-                                controller: _weightController,
-                                style: TextStyle(color: textColor),
-                                cursorColor: textColor,
-                                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                                inputFormatters: [
-                                  FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                              Row(
+                                children: [
+                                  // WEIGHT INPUT
+                                  Expanded(
+                                    flex: 2,
+                                    child: TextField(
+                                      controller: _weightController,
+                                      style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold),
+                                      cursorColor: textColor,
+                                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                                      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*'))],
+                                      autofocus: true,
+                                      decoration: InputDecoration(
+                                        labelText: 'Weight',
+                                        labelStyle: TextStyle(color: hintColor, fontSize: 14, fontWeight: FontWeight.normal),
+                                        suffixText: currentUnit,
+                                        suffixStyle: TextStyle(color: hintColor),
+                                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: underlineColor)),
+                                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor, width: 2)),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 20),
+                                  // REPS INPUT
+                                  Expanded(
+                                    flex: 1,
+                                    child: TextField(
+                                      controller: _repsController,
+                                      style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold),
+                                      cursorColor: textColor,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                                      decoration: InputDecoration(
+                                        labelText: 'Reps',
+                                        labelStyle: TextStyle(color: hintColor, fontSize: 14, fontWeight: FontWeight.normal),
+                                        enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: underlineColor)),
+                                        focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor, width: 2)),
+                                      ),
+                                    ),
+                                  ),
                                 ],
-                                autofocus: true,
-                                decoration: InputDecoration(
-                                  hintText: isKg ? 'e.g., 100' : 'e.g., 225',
-                                  suffixText: currentUnit,
-                                  suffixStyle: TextStyle(color: textColor),
-                                  hintStyle: TextStyle(color: hintColor),
-                                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: underlineColor)),
-                                  focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: textColor)),
-                                ),
                               ),
                               const SizedBox(height: 30),
                               _buildUnitToggle(isDark, isKg, useMaterialYou, scheme),
@@ -134,9 +171,25 @@ class _ProgressPageState extends State<ProgressPage> {
                               onPressed: () {
                                 if (_weightController != null && _weightController!.text.trim().isNotEmpty) {
                                   double? weight = double.tryParse(_weightController!.text.trim());
+                                  int reps = int.tryParse(_repsController?.text.trim() ?? "1") ?? 1;
+                                  
                                   if (weight != null) {
                                     String activeUnit = widget.appState.isKg ? "kg" : "lbs";
-                                    widget.appState.addWeightRecord(exerciseName, weight, activeUnit);
+                                    bool isPR = widget.appState.addWeightRecord(exerciseName, weight, activeUnit, reps);
+                                    
+                                    if (isPR) {
+                                      HapticFeedback.heavyImpact();
+                                      _confettiController.play();
+                                      ScaffoldMessenger.of(this.context).showSnackBar(
+                                        SnackBar(
+                                          content: Text('🎉 New Personal Record on $exerciseName!', style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                                          backgroundColor: Colors.green.shade600,
+                                          behavior: SnackBarBehavior.floating,
+                                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                          duration: const Duration(seconds: 3),
+                                        )
+                                      );
+                                    }
                                   }
                                 }
                                 _closeAddWeightDialog();
@@ -189,42 +242,14 @@ class _ProgressPageState extends State<ProgressPage> {
                 decoration: BoxDecoration(
                   color: thumbBg,
                   borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    )
-                  ],
+                  boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 4, offset: const Offset(0, 2))]
                 ),
               ),
             ),
             Row(
               children: [
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'lbs',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: !isKg ? activeText : inactiveText,
-                      ),
-                    ),
-                  ),
-                ),
-                Expanded(
-                  child: Center(
-                    child: Text(
-                      'kg',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: isKg ? activeText : inactiveText,
-                      ),
-                    ),
-                  ),
-                ),
+                Expanded(child: Center(child: Text('lbs', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: !isKg ? activeText : inactiveText)))),
+                Expanded(child: Center(child: Text('kg', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: isKg ? activeText : inactiveText)))),
               ],
             ),
           ],
@@ -265,7 +290,6 @@ class _ProgressPageState extends State<ProgressPage> {
           body: Stack(
             children: [
               Positioned.fill(
-                // THE FIX: Removed RepaintBoundary from wrapping the entire list to stop GPU texture bloating
                 child: ValueListenableBuilder<String?>(
                   valueListenable: _selectedFilterNotifier,
                   builder: (context, selectedFilter, child) {
@@ -307,7 +331,7 @@ class _ProgressPageState extends State<ProgressPage> {
                                   highestNorm = norm;
                                 }
                               }
-                              displayWeight = "${highest.weight} ${highest.unit}";
+                              displayWeight = "${highest.weight} ${highest.unit} x ${highest.reps}";
                             }
 
                             return TweenAnimationBuilder<double>(
@@ -318,10 +342,7 @@ class _ProgressPageState extends State<ProgressPage> {
                               builder: (context, value, child) {
                                 return Transform.translate(
                                   offset: Offset(0, 30 * (1 - value)), 
-                                  child: Opacity(
-                                    opacity: value, 
-                                    child: child,
-                                  ),
+                                  child: Opacity(opacity: value, child: child),
                                 );
                               },
                               child: Container(
@@ -360,6 +381,8 @@ class _ProgressPageState extends State<ProgressPage> {
                                           BouncingWidget(
                                             onTap: () {
                                               if (records.isNotEmpty) {
+                                                // THE FIX: Provide instantaneous feedback when tapped
+                                                HapticFeedback.lightImpact();
                                                 Navigator.push(
                                                   context,
                                                   MaterialPageRoute(
@@ -405,6 +428,7 @@ class _ProgressPageState extends State<ProgressPage> {
                       padding: EdgeInsets.only(
                         top: MediaQuery.of(context).padding.top + 10,
                         left: 20, 
+                        right: 20,
                         bottom: 15,
                       ),
                       child: Column(
@@ -465,6 +489,20 @@ class _ProgressPageState extends State<ProgressPage> {
                   ),
                 ),
               ),
+
+              Align(
+                alignment: Alignment.topCenter,
+                child: ConfettiWidget(
+                  confettiController: _confettiController,
+                  blastDirection: math.pi / 2, 
+                  maxBlastForce: 5,
+                  minBlastForce: 2,
+                  emissionFrequency: 0.05,
+                  numberOfParticles: 20,
+                  gravity: 0.1,
+                  colors: const [Colors.green, Colors.blue, Colors.pink, Colors.orange, Colors.purple],
+                ),
+              ),
             ],
           ),
         );
@@ -521,11 +559,7 @@ class _FilterChip extends StatelessWidget {
             child: Center(
               child: AnimatedDefaultTextStyle(
                 duration: const Duration(milliseconds: 300),
-                style: TextStyle(
-                  color: isSelected ? invertedColor : Colors.grey.shade500,
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
-                  fontSize: 14,
-                ),
+                style: TextStyle(color: isSelected ? invertedColor : Colors.grey.shade500, fontWeight: isSelected ? FontWeight.bold : FontWeight.w600, fontSize: 14),
                 child: Text(label),
               ),
             ),
@@ -536,6 +570,9 @@ class _FilterChip extends StatelessWidget {
   }
 }
 
+// -----------------------------------------------------------------------------
+// ADVANCED CHART PAGE: Deferred Rendering & GPU Throttling fixes lag
+// -----------------------------------------------------------------------------
 class ChartPage extends StatefulWidget {
   final WorkoutState appState;
   final String exerciseName;
@@ -554,20 +591,26 @@ class ChartPage extends StatefulWidget {
 
 class _ChartPageState extends State<ChartPage> {
   final ValueNotifier<bool> _animateChartNotifier = ValueNotifier(false);
+  final ScreenshotController _screenshotController = ScreenshotController();
+
+  bool _show1RM = false;
+  String _timeFilter = 'ALL'; 
+  
+  // THE FIX: Used to hide heavy content until the page sliding animation is complete!
+  bool _isNavigating = true; 
 
   @override
   void initState() {
     super.initState();
-    Future.delayed(const Duration(milliseconds: 600), () {
-      if (mounted) _animateChartNotifier.value = true;
+    // THE FIX: Gives the page 300ms to smoothly slide in before computing and drawing the heavy graph
+    Future.delayed(const Duration(milliseconds: 300), () {
+      if (mounted) {
+        setState(() => _isNavigating = false);
+        Future.delayed(const Duration(milliseconds: 50), () {
+          if (mounted) _animateChartNotifier.value = true;
+        });
+      }
     });
-  }
-
-  double _normalizeWeightForChart(WeightRecord r) {
-    bool targetIsKg = widget.globalUnitPreference == 'kg';
-    if (r.unit == 'kg' && !targetIsKg) return r.weight * 2.20462;
-    if (r.unit == 'lbs' && targetIsKg) return r.weight / 2.20462;
-    return r.weight;
   }
 
   @override
@@ -576,50 +619,95 @@ class _ChartPageState extends State<ChartPage> {
     super.dispose();
   }
 
+  Future<void> _captureAndShare() async {
+    HapticFeedback.mediumImpact();
+    try {
+      final Uint8List? image = await _screenshotController.capture(delay: const Duration(milliseconds: 10));
+      if (image != null) {
+        final directory = await getTemporaryDirectory();
+        final imagePath = await File('${directory.path}/share_pr.png').create();
+        await imagePath.writeAsBytes(image);
+        await Share.shareXFiles([XFile(imagePath.path)], text: 'Check out my progress on ${widget.exerciseName}! 💪');
+      }
+    } catch (e) {
+      debugPrint("Error sharing: $e");
+    }
+  }
+
+  double _getCalculatedWeight(WeightRecord r) {
+    bool targetIsKg = widget.globalUnitPreference == 'kg';
+    double normW = r.weight;
+    
+    if (r.unit == 'kg' && !targetIsKg) normW = r.weight * 2.20462;
+    if (r.unit == 'lbs' && targetIsKg) normW = r.weight / 2.20462;
+
+    if (_show1RM && r.reps > 1) {
+      return normW * (1 + (r.reps / 30.0)); 
+    }
+    return normW;
+  }
+
+  List<WeightRecord> _getFilteredRecords(List<WeightRecord> allRecords) {
+    if (_timeFilter == 'ALL') return allRecords;
+    
+    DateTime now = DateTime.now();
+    DateTime cutoff;
+    
+    if (_timeFilter == '1M') cutoff = DateTime(now.year, now.month - 1, now.day);
+    else if (_timeFilter == '3M') cutoff = DateTime(now.year, now.month - 3, now.day);
+    else if (_timeFilter == '6M') cutoff = DateTime(now.year, now.month - 6, now.day);
+    else cutoff = DateTime(now.year, 1, 1); 
+
+    return allRecords.where((r) => r.date.isAfter(cutoff)).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: widget.appState,
       builder: (context, child) {
         
-        List<WeightRecord> currentRecords = widget.appState.exerciseProgress[widget.exerciseName] ?? [];
-        if (currentRecords.isEmpty) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) Navigator.pop(context);
-          });
+        List<WeightRecord> rawRecords = widget.appState.exerciseProgress[widget.exerciseName] ?? [];
+        if (rawRecords.isEmpty && !_isNavigating) {
+          WidgetsBinding.instance.addPostFrameCallback((_) { if (mounted) Navigator.pop(context); });
           return const Scaffold(backgroundColor: Colors.black, body: Center(child: CircularProgressIndicator()));
         }
 
-        double minWeight = _normalizeWeightForChart(currentRecords.first);
-        double maxWeight = minWeight;
-        
-        for (var r in currentRecords) {
-          double val = _normalizeWeightForChart(r);
-          if (val < minWeight) minWeight = val;
-          if (val > maxWeight) maxWeight = val;
-        }
+        List<WeightRecord> currentRecords = _getFilteredRecords(rawRecords);
 
-        double explicitMinY, explicitMaxY;
-        if (minWeight == maxWeight) {
-          explicitMinY = (minWeight - 20) < 0 ? 0 : (minWeight - 20);
-          explicitMaxY = maxWeight + 20;
-        } else {
-          double padding = (maxWeight - minWeight) * 0.15;
-          explicitMinY = (minWeight - padding) < 0 ? 0 : (minWeight - padding);
-          explicitMaxY = maxWeight + padding;
-        }
+        double explicitMinY = 0, explicitMaxY = 100;
+        List<FlSpot> finalChartSpots = [];
+        List<FlSpot> startingSpots = [];
 
-        List<FlSpot> finalChartSpots;
-        if (currentRecords.length == 1) {
-          finalChartSpots = [
-            FlSpot(0, _normalizeWeightForChart(currentRecords.first)),
-            FlSpot(1, _normalizeWeightForChart(currentRecords.first)), 
-          ];
-        } else {
-          finalChartSpots = currentRecords.asMap().entries.map((e) => FlSpot(e.key.toDouble(), _normalizeWeightForChart(e.value))).toList();
-        }
+        if (currentRecords.isNotEmpty && !_isNavigating) {
+          double minWeight = _getCalculatedWeight(currentRecords.first);
+          double maxWeight = minWeight;
+          
+          for (var r in currentRecords) {
+            double val = _getCalculatedWeight(r);
+            if (val < minWeight) minWeight = val;
+            if (val > maxWeight) maxWeight = val;
+          }
 
-        List<FlSpot> startingSpots = finalChartSpots.map((spot) => FlSpot(spot.x, explicitMinY)).toList();
+          if (minWeight == maxWeight) {
+            explicitMinY = (minWeight - 20) < 0 ? 0 : (minWeight - 20);
+            explicitMaxY = maxWeight + 20;
+          } else {
+            double padding = (maxWeight - minWeight) * 0.15;
+            explicitMinY = (minWeight - padding) < 0 ? 0 : (minWeight - padding);
+            explicitMaxY = maxWeight + padding;
+          }
+
+          if (currentRecords.length == 1) {
+            finalChartSpots = [
+              FlSpot(0, _getCalculatedWeight(currentRecords.first)),
+              FlSpot(1, _getCalculatedWeight(currentRecords.first)), 
+            ];
+          } else {
+            finalChartSpots = currentRecords.asMap().entries.map((e) => FlSpot(e.key.toDouble(), _getCalculatedWeight(e.value))).toList();
+          }
+          startingSpots = finalChartSpots.map((spot) => FlSpot(spot.x, explicitMinY)).toList();
+        }
 
         final bool isDark = widget.appState.isDarkMode;
         final bool useMaterialYou = widget.appState.useMaterialYou;
@@ -643,126 +731,162 @@ class _ChartPageState extends State<ChartPage> {
           body: Stack(
             children: [
               Positioned.fill(
-                // THE FIX: Removed RepaintBoundary from wrapping the whole scroll view
                 child: SingleChildScrollView(
                   physics: const BouncingScrollPhysics(),
                   padding: EdgeInsets.only(top: topPadding, left: 20, right: 20, bottom: 40),
                   
-                  child: TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: 1.0),
-                    duration: const Duration(milliseconds: 500),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, value, child) {
-                      return Transform.scale(
-                        scale: 0.95 + (0.05 * value),
-                        child: Opacity(opacity: value, child: child),
-                      );
-                    },
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(25),
-                          decoration: BoxDecoration(
-                            color: cardColor,
-                            borderRadius: BorderRadius.circular(24),
-                            boxShadow: !isDark && !useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Weight History', style: TextStyle(color: useMaterialYou ? scheme.onSurfaceVariant : Colors.grey.shade500, fontSize: 16)),
-                              const SizedBox(height: 30),
-                              SizedBox(
-                                height: 300,
-                                width: double.infinity,
-                                child: ValueListenableBuilder<bool>(
-                                  valueListenable: _animateChartNotifier,
-                                  builder: (context, animate, child) {
-                                    // THE FIX: Isolated RepaintBoundary specifically to the computationally heavy chart drawing
-                                    return RepaintBoundary(
-                                      child: LineChart(
-                                        LineChartData(
-                                          minY: explicitMinY, 
-                                          maxY: explicitMaxY,
-                                          gridData: const FlGridData(show: false), 
-                                          titlesData: const FlTitlesData(show: false),
-                                          borderData: FlBorderData(show: false),
-                                          lineTouchData: LineTouchData(
-                                            touchTooltipData: LineTouchTooltipData(
-                                              getTooltipColor: (touchedSpot) => tooltipBgColor,
-                                              getTooltipItems: (touchedSpots) {
-                                                return touchedSpots.map((spot) {
-                                                  int index = spot.x.toInt();
-                                                  WeightRecord originalRecord = currentRecords[index];
-                                                  return LineTooltipItem(
-                                                    '${originalRecord.weight} ${originalRecord.unit}',
-                                                    TextStyle(color: tooltipTextColor, fontWeight: FontWeight.bold),
-                                                  );
-                                                }).toList();
-                                              },
+                  // THE FIX: Instantly renders a blank placeholder until navigation finishes, dropping CPU load!
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 300),
+                    child: _isNavigating 
+                      ? const SizedBox(height: 500) 
+                      : Column(
+                          key: const ValueKey('loadedContent'),
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Screenshot(
+                              controller: _screenshotController,
+                              child: Container(
+                                padding: const EdgeInsets.all(25),
+                                decoration: BoxDecoration(
+                                  color: cardColor,
+                                  borderRadius: BorderRadius.circular(24),
+                                  boxShadow: !isDark && !useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(widget.exerciseName, style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                                        GestureDetector(
+                                          onTap: () {
+                                            HapticFeedback.selectionClick();
+                                            setState(() => _show1RM = !_show1RM);
+                                          },
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            decoration: BoxDecoration(
+                                              color: _show1RM ? chartLineColor : Colors.transparent,
+                                              borderRadius: BorderRadius.circular(12),
+                                              border: Border.all(color: _show1RM ? Colors.transparent : subTextColor.withOpacity(0.5)),
+                                            ),
+                                            child: Text('Est. 1RM', style: TextStyle(
+                                              color: _show1RM ? (useMaterialYou ? scheme.onPrimary : (isDark ? Colors.black : Colors.white)) : subTextColor, 
+                                              fontSize: 12, fontWeight: FontWeight.bold)
                                             ),
                                           ),
-                                          lineBarsData: [
-                                            LineChartBarData(
-                                              spots: animate ? finalChartSpots : startingSpots,
-                                              isCurved: false, 
-                                              color: chartLineColor, 
-                                              barWidth: 4,
-                                              isStrokeCapRound: true,
-                                              dotData: FlDotData(
-                                                show: true,
-                                                getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-                                                  radius: 4,
-                                                  color: chartLineColor,
-                                                  strokeWidth: 2,
-                                                  strokeColor: cardColor,
-                                                ),
-                                              ),
-                                              belowBarData: BarAreaData(
-                                                show: true,
-                                                color: chartLineColor.withOpacity(0.1), 
-                                              ),
-                                            )
-                                          ],
                                         ),
-                                        duration: const Duration(milliseconds: 1200), 
-                                        curve: Curves.easeOutCubic, 
-                                      ),
-                                    );
-                                  },
+                                      ],
+                                    ),
+                                    const SizedBox(height: 15),
+
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: ['1M', '3M', '6M', 'YTD', 'ALL'].map((filter) {
+                                        bool isSel = _timeFilter == filter;
+                                        return GestureDetector(
+                                          onTap: () {
+                                            HapticFeedback.selectionClick();
+                                            setState(() => _timeFilter = filter);
+                                          },
+                                          child: Text(filter, style: TextStyle(
+                                            color: isSel ? textColor : subTextColor, 
+                                            fontWeight: isSel ? FontWeight.bold : FontWeight.normal,
+                                            fontSize: 13
+                                          )),
+                                        );
+                                      }).toList(),
+                                    ),
+                                    const SizedBox(height: 30),
+
+                                    currentRecords.isEmpty 
+                                      ? SizedBox(height: 250, child: Center(child: Text('No records in this time range', style: TextStyle(color: subTextColor))))
+                                      : SizedBox(
+                                          height: 250,
+                                          width: double.infinity,
+                                          child: ValueListenableBuilder<bool>(
+                                            valueListenable: _animateChartNotifier,
+                                            builder: (context, animate, child) {
+                                              return RepaintBoundary(
+                                                child: LineChart(
+                                                  LineChartData(
+                                                    minY: explicitMinY, 
+                                                    maxY: explicitMaxY,
+                                                    gridData: const FlGridData(show: false), 
+                                                    titlesData: const FlTitlesData(show: false),
+                                                    borderData: FlBorderData(show: false),
+                                                    lineTouchData: LineTouchData(
+                                                      touchTooltipData: LineTouchTooltipData(
+                                                        getTooltipColor: (touchedSpot) => tooltipBgColor,
+                                                        getTooltipItems: (touchedSpots) {
+                                                          return touchedSpots.map((spot) {
+                                                            int index = spot.x.toInt();
+                                                            WeightRecord originalRecord = currentRecords[index];
+                                                            
+                                                            String lbl = _show1RM 
+                                                              ? '${_getCalculatedWeight(originalRecord).toStringAsFixed(1)} ${widget.globalUnitPreference}'
+                                                              : '${originalRecord.weight} ${originalRecord.unit} x ${originalRecord.reps}';
+                                                            
+                                                            return LineTooltipItem(lbl, TextStyle(color: tooltipTextColor, fontWeight: FontWeight.bold));
+                                                          }).toList();
+                                                        },
+                                                      ),
+                                                    ),
+                                                    lineBarsData: [
+                                                      LineChartBarData(
+                                                        spots: animate ? finalChartSpots : startingSpots,
+                                                        isCurved: true, 
+                                                        curveSmoothness: 0.2,
+                                                        color: chartLineColor, 
+                                                        barWidth: 4,
+                                                        isStrokeCapRound: true,
+                                                        // THE FIX: GPU Throttling! Turns off memory-heavy dots automatically if you log > 30 records
+                                                        dotData: FlDotData(
+                                                          show: currentRecords.length <= 30,
+                                                          getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
+                                                            radius: 4, color: chartLineColor, strokeWidth: 2, strokeColor: cardColor,
+                                                          ),
+                                                        ),
+                                                        belowBarData: BarAreaData(show: true, color: chartLineColor.withOpacity(0.1)),
+                                                      )
+                                                    ],
+                                                  ),
+                                                  duration: const Duration(milliseconds: 1200), 
+                                                  curve: Curves.easeOutCubic, 
+                                                ),
+                                              );
+                                            },
+                                          ),
+                                        ),
+                                  ],
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
+                            ),
 
-                        const SizedBox(height: 35),
-                        Text('Log History', style: TextStyle(color: useMaterialYou ? scheme.onSurfaceVariant : Colors.grey.shade500, fontSize: 16)),
-                        const SizedBox(height: 15),
+                            const SizedBox(height: 35),
+                            Text('Log History', style: TextStyle(color: useMaterialYou ? scheme.onSurfaceVariant : Colors.grey.shade500, fontSize: 16)),
+                            const SizedBox(height: 15),
 
-                        // THE FIX: Replaced ListView with an optimized Column mapping to remove default hidden padding
-                        Column(
-                          children: currentRecords.reversed.map((record) {
-                            String dateStr = "${monthNames[record.date.month - 1]} ${record.date.day}, ${record.date.year}";
-                            
-                            return _AnimatedLogItem(
-                              key: ObjectKey(record), // Critical for proper list animation updating
-                              record: record,
-                              dateStr: dateStr,
-                              cardColor: cardColor,
-                              textColor: textColor,
-                              subTextColor: subTextColor,
-                              isDark: isDark,
-                              useMaterialYou: useMaterialYou,
-                              onDelete: () {
-                                widget.appState.deleteWeightRecord(widget.exerciseName, record);
-                              },
-                            );
-                          }).toList(),
+                            Column(
+                              children: rawRecords.reversed.map((record) {
+                                String dateStr = "${monthNames[record.date.month - 1]} ${record.date.day}, ${record.date.year}";
+                                return _AnimatedLogItem(
+                                  key: ObjectKey(record), 
+                                  record: record,
+                                  dateStr: dateStr,
+                                  cardColor: cardColor,
+                                  textColor: textColor,
+                                  subTextColor: subTextColor,
+                                  isDark: isDark,
+                                  useMaterialYou: useMaterialYou,
+                                  onDelete: () => widget.appState.deleteWeightRecord(widget.exerciseName, record),
+                                );
+                              }).toList(),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
                   ),
                 ),
               ),
@@ -795,10 +919,18 @@ class _ChartPageState extends State<ChartPage> {
                           const SizedBox(width: 15),
                           Expanded(
                             child: Text(
-                              widget.exerciseName, 
+                              'Progress', 
                               style: TextStyle(color: textColor, fontSize: 26, fontWeight: FontWeight.bold),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          BouncingWidget(
+                            onTap: _captureAndShare,
+                            child: CircleAvatar(
+                              radius: 20, 
+                              backgroundColor: useMaterialYou ? scheme.primaryContainer : (isDark ? const Color(0xFF1C1C1E) : Colors.grey.shade200), 
+                              child: Icon(Icons.ios_share_rounded, color: useMaterialYou ? scheme.onPrimaryContainer : textColor, size: 18)
                             ),
                           ),
                         ],
@@ -815,9 +947,6 @@ class _ChartPageState extends State<ChartPage> {
   }
 }
 
-// -----------------------------------------------------------------------------
-// NEW: Smooth Delete Animation Wrapper
-// -----------------------------------------------------------------------------
 class _AnimatedLogItem extends StatefulWidget {
   final WeightRecord record;
   final String dateStr;
@@ -850,7 +979,6 @@ class _AnimatedLogItemState extends State<_AnimatedLogItem> {
   void _handleDelete() async {
     HapticFeedback.mediumImpact();
     setState(() => _isDeleting = true);
-    // Waits for the physical collapse animation to finish before destroying the data in the background
     await Future.delayed(const Duration(milliseconds: 250));
     if (mounted) widget.onDelete();
   }
@@ -864,7 +992,7 @@ class _AnimatedLogItemState extends State<_AnimatedLogItem> {
         duration: const Duration(milliseconds: 200),
         opacity: _isDeleting ? 0.0 : 1.0,
         child: _isDeleting 
-          ? const SizedBox(width: double.infinity, height: 0) // Gracefully shrinks to 0
+          ? const SizedBox(width: double.infinity, height: 0) 
           : Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
@@ -881,7 +1009,7 @@ class _AnimatedLogItemState extends State<_AnimatedLogItem> {
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('${widget.record.weight} ${widget.record.unit}', style: TextStyle(color: widget.textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+                      Text('${widget.record.weight} ${widget.record.unit} × ${widget.record.reps}', style: TextStyle(color: widget.textColor, fontSize: 18, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 4),
                       Text(widget.dateStr, style: TextStyle(color: widget.subTextColor, fontSize: 13)),
                     ],
