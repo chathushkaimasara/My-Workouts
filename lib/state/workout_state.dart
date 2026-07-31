@@ -9,7 +9,6 @@ import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../models/workout_models.dart';
 
-// Structured class to hold multi-color themes
 class AppThemePreset {
   final String id;
   final String name;
@@ -18,7 +17,6 @@ class AppThemePreset {
   const AppThemePreset({required this.id, required this.name, required this.colors});
 }
 
-// THE PRESETS: 1-color, 2-color, and 3-color combinations!
 const List<AppThemePreset> appThemePresets = [
   AppThemePreset(id: 'default_black', name: 'Premium Midnight', colors: [Colors.black, Colors.grey]),
   AppThemePreset(id: 'blue_ocean', name: 'Deep Ocean', colors: [Color(0xFF007AFF), Color(0xFF00C6FF)]),
@@ -49,7 +47,6 @@ class WorkoutState extends ChangeNotifier {
   Color _customThemeColor = const Color(0xFF6200EE); 
   Color get customThemeColor => _customThemeColor;
 
-  // Stores the history of custom colors picked
   List<int> _customColorHistory = [];
   List<Color> get customColorHistory => _customColorHistory.map((v) => Color(v)).toList();
 
@@ -102,13 +99,11 @@ class WorkoutState extends ChangeNotifier {
     _saveData();
   }
 
-  // Sets the specific color from the color wheel and updates history
   void setCustomThemeColor(Color color) {
     _customThemeColor = color;
     _themePresetId = 'custom_color';
     if (_useMaterialYou) _useMaterialYou = false;
 
-    // HISTORY LOGIC: Add to front, remove duplicates, keep max 8 colors
     _customColorHistory.remove(color.value);
     _customColorHistory.insert(0, color.value);
     if (_customColorHistory.length > 8) {
@@ -136,12 +131,23 @@ class WorkoutState extends ChangeNotifier {
     return sortedList;
   }
 
-  void addWeightRecord(String exerciseName, double weight) {
+  void addWeightRecord(String exerciseName, double weight, String unit) {
     if (!exerciseProgress.containsKey(exerciseName)) {
       exerciseProgress[exerciseName] = [];
     }
-    exerciseProgress[exerciseName]!.add(WeightRecord(date: DateTime.now(), weight: weight));
+    exerciseProgress[exerciseName]!.add(WeightRecord(date: DateTime.now(), weight: weight, unit: unit));
     _saveData();
+  }
+
+  // NEW: Instantly deletes accidental weights and cleans up the map
+  void deleteWeightRecord(String exerciseName, WeightRecord record) {
+    if (exerciseProgress.containsKey(exerciseName)) {
+      exerciseProgress[exerciseName]!.remove(record);
+      if (exerciseProgress[exerciseName]!.isEmpty) {
+        exerciseProgress.remove(exerciseName); 
+      }
+      _saveData();
+    }
   }
 
   Future<void> exportData() async {

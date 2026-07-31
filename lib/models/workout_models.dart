@@ -68,22 +68,26 @@ class WorkoutDay {
   }
 }
 
-// --- NEW: WEIGHT RECORD MODEL ---
 class WeightRecord {
   final DateTime date;
   final double weight;
+  final String unit; // NEW: Saves the specific unit used
 
-  WeightRecord({required this.date, required this.weight});
+  WeightRecord({
+    required this.date,
+    required this.weight,
+    this.unit = 'lbs', // Fallback for old data
+  });
 
   Map<String, dynamic> toJson() => {
     'date': date.toIso8601String(),
     'weight': weight,
+    'unit': unit, // Saves to JSON
   };
 
-  factory WeightRecord.fromJson(Map<String, dynamic> json) {
-    return WeightRecord(
-      date: DateTime.parse(json['date']),
-      weight: json['weight'],
-    );
-  }
+  factory WeightRecord.fromJson(Map<String, dynamic> json) => WeightRecord(
+    date: DateTime.parse(json['date']),
+    weight: json['weight'].toDouble(),
+    unit: json['unit'] ?? 'lbs', // Loads from JSON securely
+  );
 }

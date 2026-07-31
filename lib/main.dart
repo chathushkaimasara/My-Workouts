@@ -1,6 +1,6 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'; 
+import 'package:flutter/services.dart';
 import 'state/workout_state.dart';
 import 'screens/home_page.dart';
 import 'screens/welcome_page.dart';
