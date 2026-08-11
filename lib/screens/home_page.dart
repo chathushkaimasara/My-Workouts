@@ -26,40 +26,28 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final ValueNotifier<String?> _selectedDayIdNotifier = ValueNotifier(null);
   OverlayEntry? _menuOverlayEntry; 
-  OverlayEntry? _addDayOverlayEntry; 
   Offset _menuPosition = Offset.zero;
   Offset? _globalPointerPosition; 
-  
-  DateTime _selectedDate = DateTime.now();
-  
-  late ScrollController _calendarScrollController;
-  double _lastHapticOffset = 1004.0;
-
-  @override
-  void initState() {
-    super.initState();
-    _calendarScrollController = ScrollController(initialScrollOffset: 1004.0);
-  }
 
   @override
   void dispose() {
-    _calendarScrollController.dispose();
     _selectedDayIdNotifier.dispose();
-    _menuOverlayEntry?.remove();
-    _addDayOverlayEntry?.remove(); 
+    _closeMenu(); 
     super.dispose();
   }
 
   void _closeMenu() {
     if (_selectedDayIdNotifier.value != null) {
       _selectedDayIdNotifier.value = null;
-      _menuOverlayEntry?.remove();
+      if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
+        _menuOverlayEntry!.remove();
+      }
       _menuOverlayEntry = null;
     }
   }
 
   void _openMenu(String id, Offset position) {
-    if (_menuOverlayEntry != null) {
+    if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
       _menuOverlayEntry!.remove();
       _menuOverlayEntry = null;
     }
@@ -173,75 +161,54 @@ class _HomePageState extends State<HomePage> {
     widget.appState.updateDayImage(day.id, null);
   }
 
-  void _closeAddDayDialog() {
-    if (_addDayOverlayEntry != null) {
-      _addDayOverlayEntry!.remove();
-      _addDayOverlayEntry = null;
-    }
-  }
-
   void _showAddDayDialog(BuildContext context, bool isDark, Color dialogBg, Color textColor) {
-    if (_addDayOverlayEntry != null) return;
-    
     TextEditingController nameController = TextEditingController();
     
-    _addDayOverlayEntry = OverlayEntry(
-      builder: (context) {
-        return Material(
-          color: Colors.black.withOpacity(0.7), 
-          child: Stack(
-            children: [
-              Positioned.fill(
-                child: GestureDetector(
-                  onTap: _closeAddDayDialog,
-                  behavior: HitTestBehavior.opaque,
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-              Center(
-                child: TweenAnimationBuilder<double>(
-                  tween: Tween(begin: 0.0, end: 1.0),
-                  duration: const Duration(milliseconds: 250),
-                  curve: Curves.easeOutBack,
-                  builder: (context, value, child) {
-                    return Transform.scale(
-                      scale: value,
-                      child: Opacity(opacity: value.clamp(0.0, 1.0), child: child),
-                    );
-                  },
-                  child: GestureDetector(
-                    onTap: () {}, 
-                    child: AlertDialog(
-                      backgroundColor: dialogBg, 
-                      surfaceTintColor: Colors.transparent,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                      title: Text('New Workout Day', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                      content: _buildThemedTextField(controller: nameController, hint: 'e.g., Pull Day, Leg Day', textColor: textColor, isDark: isDark),
-                      actions: [
-                        TextButton(
-                          onPressed: _closeAddDayDialog,
-                          child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            if (nameController.text.trim().isNotEmpty) {
-                              widget.appState.addDay(nameController.text.trim());
-                            }
-                            _closeAddDayDialog();
-                          },
-                          child: Text('Create', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+    showGeneralDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.7),
+      barrierDismissible: true,
+      barrierLabel: "Dismiss",
+      transitionDuration: const Duration(milliseconds: 350),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return Transform.scale(
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack).value,
+          child: FadeTransition(opacity: animation, child: child),
         );
       },
-    );
-    Overlay.of(context).insert(_addDayOverlayEntry!);
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return AlertDialog(
+          backgroundColor: dialogBg, 
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('New Workout Day', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+          content: _buildThemedTextField(controller: nameController, hint: 'e.g., Pull Day, Leg Day', textColor: textColor, isDark: isDark),
+          actions: [
+            TextButton(
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                if (nameController.text.trim().isNotEmpty) {
+                  widget.appState.addDay(nameController.text.trim());
+                }
+                Navigator.pop(dialogContext);
+              },
+              child: Text('Create', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        nameController.dispose();
+      });
+    });
   }
 
   void _showRenameDialog(BuildContext context, WorkoutDay day, bool isDark, Color dialogBg, Color textColor) {
@@ -258,7 +225,7 @@ class _HomePageState extends State<HomePage> {
           child: FadeTransition(opacity: animation, child: child),
         );
       },
-      pageBuilder: (context, animation, secondaryAnimation) {
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return AlertDialog(
           backgroundColor: dialogBg, 
           surfaceTintColor: Colors.transparent,
@@ -267,22 +234,91 @@ class _HomePageState extends State<HomePage> {
           content: _buildThemedTextField(controller: nameController, hint: 'Day Name', textColor: textColor, isDark: isDark),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                Navigator.pop(dialogContext);
+              },
               child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
             ),
             TextButton(
               onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
                 if (nameController.text.trim().isNotEmpty) {
                   widget.appState.renameDay(day.id, nameController.text.trim());
                 }
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
               child: Text('Save', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
             ),
           ],
         );
       },
-    );
+    ).then((_) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        nameController.dispose();
+      });
+    });
+  }
+
+  void _showEditQuoteDialog(BuildContext context, Color dialogBg, Color textColor, Color schemePrimary) {
+    TextEditingController quoteController = TextEditingController(text: widget.appState.customQuote);
+    showGeneralDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.7),
+      barrierDismissible: true,
+      barrierLabel: "Dismiss",
+      transitionDuration: const Duration(milliseconds: 350),
+      transitionBuilder: (context, animation, secondaryAnimation, child) {
+        return Transform.scale(
+          scale: CurvedAnimation(parent: animation, curve: Curves.easeOutBack).value,
+          child: FadeTransition(opacity: animation, child: child),
+        );
+      },
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
+        return AlertDialog(
+          backgroundColor: dialogBg, 
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Text('Motivational Quote', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: quoteController,
+            style: TextStyle(color: textColor),
+            cursorColor: textColor, 
+            autofocus: true,
+            maxLines: null,
+            decoration: InputDecoration(
+              hintText: 'Enter your quote here...',
+              hintStyle: const TextStyle(color: Colors.grey),
+              enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.grey.shade600)),
+              focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: schemePrimary)),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                Navigator.pop(dialogContext);
+              },
+              child: const Text('Cancel', style: TextStyle(color: Colors.grey)),
+            ),
+            TextButton(
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                if (quoteController.text.trim().isNotEmpty) {
+                  widget.appState.updateCustomQuote(quoteController.text.trim());
+                }
+                Navigator.pop(dialogContext);
+              },
+              child: Text('Save', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        );
+      },
+    ).then((_) {
+      Future.delayed(const Duration(milliseconds: 400), () {
+        quoteController.dispose();
+      });
+    });
   }
 
   Widget _buildThemedTextField({required TextEditingController controller, required String hint, required Color textColor, required bool isDark}) {
@@ -300,14 +336,24 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  String _getMonthName(int month) {
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    return monthNames[month - 1];
-  }
-
-  String _getDayName(int weekday) {
-    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    return dayNames[weekday - 1];
+  Widget _buildQuoteWidget(ColorScheme scheme, Color dialogBg, Color textColor) {
+    return BouncingWidget(
+      onTap: () => _showEditQuoteDialog(context, dialogBg, textColor, scheme.primary),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+        decoration: BoxDecoration(
+          color: scheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: scheme.primary.withOpacity(0.3)),
+        ),
+        child: Text(
+          '"${widget.appState.customQuote}"',
+          style: TextStyle(color: scheme.primary, fontStyle: FontStyle.italic, fontWeight: FontWeight.bold, fontSize: 15),
+          textAlign: TextAlign.center,
+        ),
+      ),
+    );
   }
 
   @override
@@ -332,12 +378,12 @@ class _HomePageState extends State<HomePage> {
         final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.9) : Colors.white.withOpacity(0.9)) : scheme.surfaceContainerHigh.withOpacity(0.9);
 
         bool hasProfileImage = widget.appState.profileImagePath != null && widget.appState.profileImagePath!.isNotEmpty;
-
         final days = widget.appState.days;
-        DateTime today = DateTime.now();
-        String monthYear = "${_getMonthName(today.month)}, ${today.year}";
         
-        final double topPadding = MediaQuery.of(context).padding.top + 365.0; 
+        double dynamicTopPadding = MediaQuery.of(context).padding.top + 145.0; 
+        if (widget.appState.showQuote) dynamicTopPadding += 70.0;
+        if (widget.appState.showCalendar) dynamicTopPadding += 132.0;
+        if (widget.appState.showTimer) dynamicTopPadding += 73.0;
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -408,14 +454,14 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: days.isEmpty 
                       ? Padding(
-                          padding: EdgeInsets.only(top: topPadding + 20),
+                          padding: EdgeInsets.only(top: dynamicTopPadding + 20),
                           child: const Align(
                             alignment: Alignment.topCenter,
                             child: Text("Tap '+' to create your first workout day", style: TextStyle(color: Colors.grey)),
                           ),
                         )
                       : ReorderableListView.builder(
-                          padding: EdgeInsets.only(top: topPadding, bottom: 100, left: 20, right: 20),
+                          padding: EdgeInsets.only(top: dynamicTopPadding, bottom: 100, left: 20, right: 20),
                           physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
                           buildDefaultDragHandles: false,
                           clipBehavior: Clip.none, 
@@ -425,7 +471,6 @@ class _HomePageState extends State<HomePage> {
                           itemCount: days.length,
                           onReorderStart: (index) {
                             HapticFeedback.selectionClick();
-                            
                             Future.microtask(() {
                               if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
                                 _menuOverlayEntry!.remove();
@@ -439,25 +484,30 @@ class _HomePageState extends State<HomePage> {
                           },
                           itemBuilder: (context, index) {
                             final day = days[index];
-                            return _DayCard(
+                            return Padding(
                               key: ValueKey(day.id),
-                              day: day,
-                              index: index, 
-                              selectedIdNotifier: _selectedDayIdNotifier, 
-                              isDark: isDark,
-                              useMaterialYou: useMaterialYou,
-                              textColor: textColor,
-                              onTap: () {
-                                _closeMenu();
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
-                                  ),
-                                );
-                              },
-                              onOpenMenu: (pos) => _openMenu(day.id, pos),
-                              onCloseMenu: _closeMenu,
+                              padding: const EdgeInsets.only(bottom: 20.0),
+                              child: RepaintBoundary(
+                                child: _DayCard(
+                                  day: day,
+                                  index: index, 
+                                  selectedIdNotifier: _selectedDayIdNotifier, 
+                                  isDark: isDark,
+                                  useMaterialYou: useMaterialYou,
+                                  textColor: textColor,
+                                  onTap: () {
+                                    _closeMenu();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
+                                      ),
+                                    );
+                                  },
+                                  onOpenMenu: (pos) => _openMenu(day.id, pos),
+                                  onCloseMenu: _closeMenu,
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -524,7 +574,6 @@ class _HomePageState extends State<HomePage> {
                                     );
                                   });
                                 },
-                                // THE FIX: Replaced heavy DecorationImage with optimized Image.file
                                 child: Container(
                                   width: 44,
                                   height: 44,
@@ -538,7 +587,7 @@ class _HomePageState extends State<HomePage> {
                                         child: Image.file(
                                           File(widget.appState.profileImagePath!),
                                           fit: BoxFit.cover,
-                                          cacheWidth: 100, // Strict GPU cap
+                                          cacheWidth: 100,
                                           gaplessPlayback: true,
                                         ),
                                       )
@@ -549,122 +598,43 @@ class _HomePageState extends State<HomePage> {
                           ),
                           const SizedBox(height: 25),
                           
-                          Text(monthYear, style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.bold)),
-                          const SizedBox(height: 12),
-                          
-                          ShaderMask(
-                            shaderCallback: (Rect bounds) {
-                              return const LinearGradient(
-                                begin: Alignment.centerLeft,
-                                end: Alignment.centerRight,
-                                colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
-                                stops: [0.0, 0.1, 0.9, 1.0], 
-                              ).createShader(bounds);
-                            },
-                            blendMode: BlendMode.dstIn,
-                            child: SizedBox(
-                              height: 75,
-                              child: NotificationListener<ScrollUpdateNotification>(
-                                onNotification: (notification) {
-                                  if ((notification.metrics.pixels - _lastHapticOffset).abs() > 40) {
-                                    HapticFeedback.selectionClick();
-                                    _lastHapticOffset = notification.metrics.pixels;
-                                  }
-                                  return false;
-                                },
-                                child: ListView.builder(
-                                  controller: _calendarScrollController,
-                                  scrollDirection: Axis.horizontal,
-                                  physics: const BouncingScrollPhysics(),
-                                  itemCount: 30,
-                                  itemBuilder: (context, index) {
-                                    DateTime date = today.add(Duration(days: index - 15));
-                                    bool isToday = date.day == today.day && date.month == today.month && date.year == today.year;
-                                    
-                                    final Color unselectedChipBg = useMaterialYou
-                                        ? scheme.surfaceContainerLow
-                                        : (isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05));
-
-                                    return AnimatedBuilder(
-                                      animation: _calendarScrollController,
-                                      builder: (context, child) {
-                                        double scrollOffset = _calendarScrollController.hasClients ? _calendarScrollController.offset : 1004.0;
-                                        double listViewWidth = MediaQuery.of(context).size.width - 40; 
-                                        
-                                        double itemCenter = (index * 72.0) + 30.0; 
-                                        
-                                        double distanceFromLeft = itemCenter - scrollOffset;
-                                        double distanceFromRight = (scrollOffset + listViewWidth) - itemCenter;
-                                        double edgeDistance = distanceFromLeft < distanceFromRight ? distanceFromLeft : distanceFromRight;
-                                        
-                                        double scale = 1.0;
-                                        if (edgeDistance < 60) {
-                                          scale = (edgeDistance / 60).clamp(0.88, 1.0);
-                                        }
-                                        
-                                        return Transform.scale(
-                                          scale: scale,
-                                          child: child,
-                                        );
-                                      },
-                                      child: GestureDetector(
-                                        onTap: () => HapticFeedback.lightImpact(),
-                                        child: Container(
-                                          margin: const EdgeInsets.only(right: 12),
-                                          width: 60,
-                                          decoration: BoxDecoration(
-                                            borderRadius: BorderRadius.circular(18),
-                                            color: isToday ? primaryColor : unselectedChipBg,
-                                            border: isToday 
-                                              ? null 
-                                              : Border.all(
-                                                  color: useMaterialYou ? scheme.outlineVariant.withOpacity(0.5) : (isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)), 
-                                                  width: 0.5
-                                                ),
-                                            boxShadow: !isDark && !isToday ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)] : [],
-                                          ),
-                                          child: Column(
-                                            mainAxisAlignment: MainAxisAlignment.center,
-                                            children: [
-                                              Text(
-                                                _getDayName(date.weekday),
-                                                style: TextStyle(
-                                                  color: isToday ? invertedColor : Colors.grey, 
-                                                  fontSize: 13, 
-                                                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '${date.day}',
-                                                style: TextStyle(
-                                                  color: isToday ? invertedColor : textColor, 
-                                                  fontSize: 18, 
-                                                  fontWeight: FontWeight.bold
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  },
+                          ...widget.appState.homeWidgetOrder.map((widgetName) {
+                            if (widgetName == 'quote' && widget.appState.showQuote) {
+                              return Padding(
+                                key: const ValueKey('home_widget_quote'),
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: _buildQuoteWidget(scheme, dialogBg, textColor),
+                              );
+                            } else if (widgetName == 'calendar' && widget.appState.showCalendar) {
+                              return Padding(
+                                key: const ValueKey('home_widget_calendar'),
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: _HomeCalendarWidget(
+                                  isDark: isDark,
+                                  useMaterialYou: useMaterialYou,
+                                  scheme: scheme,
+                                  primaryColor: primaryColor,
+                                  invertedColor: invertedColor,
+                                  textColor: textColor,
                                 ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 20),
+                              );
+                            } else if (widgetName == 'timer' && widget.appState.showTimer) {
+                              return Padding(
+                                key: const ValueKey('home_widget_timer'),
+                                padding: const EdgeInsets.only(bottom: 20),
+                                child: _WorkoutTimerWidget(
+                                  isDark: isDark,
+                                  useMaterialYou: useMaterialYou,
+                                  scheme: scheme,
+                                  textColor: textColor,
+                                  primaryColor: primaryColor,
+                                  invertedColor: invertedColor,
+                                ),
+                              );
+                            }
+                            return const SizedBox.shrink();
+                          }).toList(),
                           
-                          _WorkoutTimerWidget(
-                            isDark: isDark,
-                            useMaterialYou: useMaterialYou,
-                            scheme: scheme,
-                            textColor: textColor,
-                            primaryColor: primaryColor,
-                            invertedColor: invertedColor,
-                          ),
-                          
-                          const SizedBox(height: 25),
                           Text('My Schedule >', style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
                         ],
                       ),
@@ -676,6 +646,178 @@ class _HomePageState extends State<HomePage> {
           ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// ISOLATED CALENDAR WIDGET 
+// ---------------------------------------------------------
+class _HomeCalendarWidget extends StatefulWidget {
+  final bool isDark;
+  final bool useMaterialYou;
+  final ColorScheme scheme;
+  final Color primaryColor;
+  final Color invertedColor;
+  final Color textColor;
+
+  const _HomeCalendarWidget({
+    super.key,
+    required this.isDark,
+    required this.useMaterialYou,
+    required this.scheme,
+    required this.primaryColor,
+    required this.invertedColor,
+    required this.textColor,
+  });
+
+  @override
+  State<_HomeCalendarWidget> createState() => _HomeCalendarWidgetState();
+}
+
+class _HomeCalendarWidgetState extends State<_HomeCalendarWidget> {
+  late ScrollController _calendarScrollController;
+  double _lastHapticOffset = 1004.0;
+
+  @override
+  void initState() {
+    super.initState();
+    _calendarScrollController = ScrollController(initialScrollOffset: 1004.0);
+  }
+
+  @override
+  void dispose() {
+    _calendarScrollController.dispose();
+    super.dispose();
+  }
+
+  String _getMonthName(int month) {
+    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    return monthNames[month - 1];
+  }
+
+  String _getDayName(int weekday) {
+    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+    return dayNames[weekday - 1];
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    DateTime today = DateTime.now();
+    String monthYear = "${_getMonthName(today.month)}, ${today.year}";
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(monthYear, style: TextStyle(color: widget.textColor, fontSize: 18, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 12),
+        // THE FIX: Isolated ShaderMask in a RepaintBoundary to eliminate 60fps GPU recalculations
+        RepaintBoundary(
+          child: ShaderMask(
+            shaderCallback: (Rect bounds) {
+              return const LinearGradient(
+                begin: Alignment.centerLeft,
+                end: Alignment.centerRight,
+                colors: [Colors.transparent, Colors.black, Colors.black, Colors.transparent],
+                stops: [0.0, 0.1, 0.9, 1.0], 
+              ).createShader(bounds);
+            },
+            blendMode: BlendMode.dstIn,
+            child: SizedBox(
+              height: 75,
+              child: NotificationListener<ScrollUpdateNotification>(
+                onNotification: (notification) {
+                  if ((notification.metrics.pixels - _lastHapticOffset).abs() > 40) {
+                    HapticFeedback.selectionClick();
+                    _lastHapticOffset = notification.metrics.pixels;
+                  }
+                  return false;
+                },
+                child: ListView.builder(
+                  controller: _calendarScrollController,
+                  scrollDirection: Axis.horizontal,
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: 30,
+                  itemBuilder: (context, index) {
+                    DateTime date = today.add(Duration(days: index - 15));
+                    bool isToday = date.day == today.day && date.month == today.month && date.year == today.year;
+                    
+                    final Color unselectedChipBg = widget.useMaterialYou
+                        ? widget.scheme.surfaceContainerLow
+                        : (widget.isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05));
+          
+                    return AnimatedBuilder(
+                      animation: _calendarScrollController,
+                      builder: (context, child) {
+                        double scrollOffset = (_calendarScrollController.hasClients && _calendarScrollController.positions.length == 1)
+                            ? _calendarScrollController.offset
+                            : 1004.0;
+                        double listViewWidth = MediaQuery.of(context).size.width - 40; 
+                        
+                        double itemCenter = (index * 72.0) + 30.0; 
+                        
+                        double distanceFromLeft = itemCenter - scrollOffset;
+                        double distanceFromRight = (scrollOffset + listViewWidth) - itemCenter;
+                        double edgeDistance = distanceFromLeft < distanceFromRight ? distanceFromLeft : distanceFromRight;
+                        
+                        double scale = 1.0;
+                        if (edgeDistance < 60) {
+                          scale = (edgeDistance / 60).clamp(0.88, 1.0);
+                        }
+                        
+                        return Transform.scale(
+                          scale: scale,
+                          child: child,
+                        );
+                      },
+                      child: GestureDetector(
+                        onTap: () => HapticFeedback.lightImpact(),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 12),
+                          width: 60,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(18),
+                            color: isToday ? widget.primaryColor : unselectedChipBg,
+                            border: isToday 
+                              ? null 
+                              : Border.all(
+                                  color: widget.useMaterialYou ? widget.scheme.outlineVariant.withOpacity(0.5) : (widget.isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)), 
+                                  width: 0.5
+                                ),
+                            boxShadow: !widget.isDark && !isToday ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)] : [],
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                _getDayName(date.weekday),
+                                style: TextStyle(
+                                  color: isToday ? widget.invertedColor : Colors.grey, 
+                                  fontSize: 13, 
+                                  fontWeight: isToday ? FontWeight.bold : FontWeight.normal
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                '${date.day}',
+                                style: TextStyle(
+                                  color: isToday ? widget.invertedColor : widget.textColor, 
+                                  fontSize: 18, 
+                                  fontWeight: FontWeight.bold
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -778,6 +920,11 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
   void _startTimer() {
     setState(() => _state = TimerState.running);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      // THE FIX: Strict unmounted checks prevent the timer from triggering setState on disposed widgets!
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
       setState(() {
         if (_remainingSeconds > 0) {
           _remainingSeconds--;
@@ -814,7 +961,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
-          // 1. Play/Pause/Restart Action Button
           GestureDetector(
             onTap: _handleTap,
             onLongPress: () {
@@ -863,7 +1009,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
           ),
           const SizedBox(width: 16),
 
-          // 2. Fluid Progress Bar
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
@@ -898,7 +1043,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
           ),
           const SizedBox(width: 12),
 
-          // 3. Seconds Picker
           SizedBox(
             width: 60,
             height: 48,
@@ -920,7 +1064,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
                   diameterRatio: 1.2,
                   squeeze: 1.1,
                   selectionOverlay: const CupertinoPickerDefaultSelectionOverlay(background: Colors.transparent),
-                  // THE FIX: Uses selectionClick() to drop rapid events and prevent buzzing
                   onSelectedItemChanged: (index) async {
                     HapticFeedback.selectionClick(); 
                     
@@ -1073,71 +1216,67 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
     Color cardColor = widget.useMaterialYou ? scheme.surfaceContainer : (widget.isDark ? const Color(0xFF141414) : Colors.white);
     Color displayTextColor = hasImage ? Colors.white : widget.textColor; 
 
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20.0),
-      child: ReorderableDelayedDragStartListener(
-        index: widget.index,
-        child: Listener(
-          onPointerDown: _handlePointerDown,
-          onPointerMove: _handlePointerMove,
-          onPointerUp: _handlePointerUp,
-          onPointerCancel: _handlePointerCancel,
-          behavior: HitTestBehavior.opaque,
-          child: ScaleTransition(
-            scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
-            child: AnimatedScale(
-              scale: baseScale,
-              duration: const Duration(milliseconds: 350),
-              curve: Curves.easeOutBack,
-              // THE FIX: Swapped memory-heavy DecorationImage for hardware-accelerated ClipRRect Stack
-              child: Container(
-                height: 180, 
-                decoration: BoxDecoration(
-                  color: cardColor, 
-                  borderRadius: BorderRadius.circular(24),
-                  boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(24),
-                  child: Stack(
-                    fit: StackFit.expand,
-                    children: [
-                      if (hasImage)
-                        Image.file(
-                          File(widget.day.imagePath!),
-                          fit: BoxFit.cover,
-                          cacheWidth: 500, // Forces GPU to drop the high-res file out of active RAM
-                          gaplessPlayback: true,
-                          colorBlendMode: BlendMode.darken,
-                          color: Colors.black.withOpacity(0.4),
-                        ),
-                      Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.end,
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              widget.day.name,
-                              maxLines: 3, 
-                              style: TextStyle(
-                                color: displayTextColor, 
-                                fontSize: 22, 
-                                fontWeight: FontWeight.bold,
-                                height: 1.15, 
-                              ),
-                            ),
-                          ],
-                        ),
+    return ReorderableDelayedDragStartListener(
+      index: widget.index,
+      child: Listener(
+        onPointerDown: _handlePointerDown,
+        onPointerMove: _handlePointerMove,
+        onPointerUp: _handlePointerUp,
+        onPointerCancel: _handlePointerCancel,
+        behavior: HitTestBehavior.opaque,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 1.0, end: 1.02).animate(_pulseController),
+          child: AnimatedScale(
+            scale: baseScale,
+            duration: const Duration(milliseconds: 350),
+            curve: Curves.easeOutBack,
+            child: Container(
+              height: 180, 
+              decoration: BoxDecoration(
+                color: cardColor, 
+                borderRadius: BorderRadius.circular(24),
+                boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(24),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    if (hasImage)
+                      Image.file(
+                        File(widget.day.imagePath!),
+                        fit: BoxFit.cover,
+                        cacheWidth: 500,
+                        gaplessPlayback: true,
+                        colorBlendMode: BlendMode.darken,
+                        color: Colors.black.withOpacity(0.4),
                       ),
-                      if (widget.day.isPinned)
-                        Positioned(
-                          top: 20,
-                          right: 22,
-                          child: Icon(Icons.push_pin, color: displayTextColor.withOpacity(0.8), size: 22),
-                        ),
-                    ],
-                  ),
+                    Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.day.name,
+                            maxLines: 3, 
+                            style: TextStyle(
+                              color: displayTextColor, 
+                              fontSize: 22, 
+                              fontWeight: FontWeight.bold,
+                              height: 1.15, 
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (widget.day.isPinned)
+                      Positioned(
+                        top: 20,
+                        right: 22,
+                        child: Icon(Icons.push_pin, color: displayTextColor.withOpacity(0.8), size: 22),
+                      ),
+                  ],
                 ),
               ),
             ),

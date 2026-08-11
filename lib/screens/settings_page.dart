@@ -35,7 +35,6 @@ class _SettingsPageState extends State<SettingsPage> {
       PackageInfo packageInfo = await PackageInfo.fromPlatform();
       if (mounted) {
         setState(() {
-          // THE FIX: Stripped out the internal build number (2004)
           _appVersion = 'Version ${packageInfo.version}';
         });
       }
@@ -75,7 +74,7 @@ class _SettingsPageState extends State<SettingsPage> {
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: ImageSource.gallery);
     
-    if (image != null) {
+    if (image != null && mounted) {
       final croppedFile = await ImageCropper().cropImage(
         sourcePath: image.path,
         aspectRatio: const CropAspectRatio(ratioX: 1, ratioY: 1), 
@@ -96,14 +95,14 @@ class _SettingsPageState extends State<SettingsPage> {
         ],
       );
 
-      if (croppedFile != null) {
+      if (croppedFile != null && mounted) {
         widget.appState.updateProfileImage(croppedFile.path);
       }
     }
   }
 
   void _showEditNameDialog(BuildContext context, bool isDark, Color dialogBg, Color textColor, Color hintColor, Color underlineColor) {
-    TextEditingController nameController = TextEditingController(text: widget.appState.userName);
+    final TextEditingController nameController = TextEditingController(text: widget.appState.userName);
     showGeneralDialog(
       context: context,
       barrierColor: Colors.black.withOpacity(0.7),
@@ -116,7 +115,7 @@ class _SettingsPageState extends State<SettingsPage> {
           child: FadeTransition(opacity: animation, child: child),
         );
       },
-      pageBuilder: (context, animation, secondaryAnimation) {
+      pageBuilder: (dialogContext, animation, secondaryAnimation) {
         return AlertDialog(
           backgroundColor: dialogBg, 
           surfaceTintColor: Colors.transparent,
@@ -136,22 +135,30 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
+              onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
+                Navigator.pop(dialogContext);
+              },
               child: Text('Cancel', style: TextStyle(color: hintColor)),
             ),
             TextButton(
               onPressed: () {
+                FocusManager.instance.primaryFocus?.unfocus();
                 if (nameController.text.trim().isNotEmpty) {
                   widget.appState.updateUserName(nameController.text.trim());
                 }
-                Navigator.pop(context);
+                Navigator.pop(dialogContext);
               },
               child: Text('Save', style: TextStyle(color: textColor, fontWeight: FontWeight.bold)),
             ),
           ],
         );
       },
-    );
+    ).then((_) {
+      Future.delayed(const Duration(milliseconds: 350), () {
+        nameController.dispose();
+      });
+    });
   }
 
   void _showFontLicenseDialog(BuildContext context, Color dialogBg, Color textColor, Color subTextColor) {
@@ -418,6 +425,10 @@ class _SettingsPageState extends State<SettingsPage> {
         final Color dividerColor = isPremiumBlack ? (isDark ? Colors.white.withOpacity(0.05) : Colors.black.withOpacity(0.05)) : scheme.outlineVariant.withOpacity(0.5);
         final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6)) : scheme.surface.withOpacity(isDark ? 0.8 : 0.7);
 
+        final Color activeToggleColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary;
+        final Color activeThumbColor = isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary;
+        final Color inactiveTrackColor = isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade300;
+
         bool hasProfileImage = widget.appState.profileImagePath != null && widget.appState.profileImagePath!.isNotEmpty;
         final double topPadding = MediaQuery.of(context).padding.top + 80.0;
 
@@ -428,12 +439,10 @@ class _SettingsPageState extends State<SettingsPage> {
               Positioned.fill(
                 child: ListView(
                   physics: const BouncingScrollPhysics(),
-                  // THE FIX: Reduced the bottom padding to eliminate huge blank spaces
                   padding: EdgeInsets.only(top: topPadding, bottom: 40, left: 20, right: 20),
                   children: [
                     const SizedBox(height: 20),
 
-                    // PROFILE PICTURE SECTION
                     Center(
                       child: Column(
                         children: [
@@ -483,7 +492,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
                     const SizedBox(height: 50),
 
-                    // PREFERENCES SECTION
                     Text('Preferences', style: TextStyle(color: subTextColor, fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
                     Container(
@@ -508,9 +516,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                                 CupertinoSwitch(
                                   value: widget.appState.isDarkMode,
-                                  activeColor: isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary,
-                                  thumbColor: isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary,
-                                  trackColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade300,
+                                  activeColor: activeToggleColor,
+                                  thumbColor: activeThumbColor,
+                                  trackColor: inactiveTrackColor,
                                   onChanged: (value) => widget.appState.toggleTheme(),
                                 ),
                               ],
@@ -538,9 +546,9 @@ class _SettingsPageState extends State<SettingsPage> {
                                 ),
                                 CupertinoSwitch(
                                   value: useMaterialYou,
-                                  activeColor: isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary,
-                                  thumbColor: isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary,
-                                  trackColor: isDark ? const Color(0xFF2C2C2E) : Colors.grey.shade300,
+                                  activeColor: activeToggleColor,
+                                  thumbColor: activeThumbColor,
+                                  trackColor: inactiveTrackColor,
                                   onChanged: (value) => widget.appState.toggleMaterialYou(),
                                 ),
                               ],
@@ -560,7 +568,6 @@ class _SettingsPageState extends State<SettingsPage> {
                                         context, 
                                         MaterialPageRoute(builder: (context) => ThemeSelectionPage(appState: widget.appState))
                                       ),
-                                      // THE FIX: Wrapped the preset name in a Flexible container to prevent pushing the arrow out of bounds
                                       child: Padding(
                                         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
                                         child: Row(
@@ -599,7 +606,127 @@ class _SettingsPageState extends State<SettingsPage> {
 
                     const SizedBox(height: 35),
                     
-                    // HELP & SUPPORT SECTION
+                    // HOMESCREEN WIDGET SETTINGS
+                    Text('Homescreen', style: TextStyle(color: subTextColor, fontSize: 16, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Container(
+                      decoration: BoxDecoration(
+                        color: cardColor,
+                        borderRadius: BorderRadius.circular(20),
+                        boxShadow: !isDark && isPremiumBlack ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10)] : [],
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.format_quote, color: textColor, size: 24),
+                                    const SizedBox(width: 15),
+                                    Text('Motivational Quote', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                                CupertinoSwitch(
+                                  value: widget.appState.showQuote,
+                                  activeColor: activeToggleColor,
+                                  thumbColor: activeThumbColor,
+                                  trackColor: inactiveTrackColor,
+                                  onChanged: (_) => widget.appState.toggleQuote(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: dividerColor, indent: 60),
+
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.calendar_month, color: textColor, size: 24),
+                                    const SizedBox(width: 15),
+                                    Text('Calendar', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                                CupertinoSwitch(
+                                  value: widget.appState.showCalendar,
+                                  activeColor: activeToggleColor,
+                                  thumbColor: activeThumbColor,
+                                  trackColor: inactiveTrackColor,
+                                  onChanged: (_) => widget.appState.toggleCalendar(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: dividerColor, indent: 60),
+
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.timer_outlined, color: textColor, size: 24),
+                                    const SizedBox(width: 15),
+                                    Text('Rest Timer', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
+                                  ],
+                                ),
+                                CupertinoSwitch(
+                                  value: widget.appState.showTimer,
+                                  activeColor: activeToggleColor,
+                                  thumbColor: activeThumbColor,
+                                  trackColor: inactiveTrackColor,
+                                  onChanged: (_) => widget.appState.toggleTimer(),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Divider(height: 1, color: dividerColor),
+
+                          Padding(
+                            padding: const EdgeInsets.all(20),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Hold and drag sliders to reposition:', style: TextStyle(color: subTextColor, fontSize: 13, fontWeight: FontWeight.bold)),
+                                const SizedBox(height: 15),
+                                SizedBox(
+                                  height: 160,
+                                  child: ReorderableListView(
+                                    shrinkWrap: true,
+                                    physics: const NeverScrollableScrollPhysics(),
+                                    proxyDecorator: (child, index, animation) => Material(color: Colors.transparent, child: child),
+                                    onReorder: (oldIndex, newIndex) => widget.appState.reorderHomeWidgets(oldIndex, newIndex),
+                                    children: widget.appState.homeWidgetOrder.map((item) {
+                                      String title = item == 'quote' ? 'Motivational Quote' : (item == 'calendar' ? 'Calendar' : 'Rest Timer');
+                                      IconData icon = item == 'quote' ? Icons.format_quote : (item == 'calendar' ? Icons.calendar_month : Icons.timer_outlined);
+                                      return ListTile(
+                                        key: ValueKey(item),
+                                        contentPadding: EdgeInsets.zero,
+                                        leading: Icon(icon, color: textColor.withOpacity(0.5)),
+                                        title: Text(title, style: TextStyle(color: textColor, fontWeight: FontWeight.w500)),
+                                        trailing: Icon(Icons.drag_indicator, color: subTextColor),
+                                      );
+                                    }).toList(),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 35),
+                    
                     Text('Help & Support', style: TextStyle(color: subTextColor, fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
                     Container(
@@ -627,7 +754,7 @@ class _SettingsPageState extends State<SettingsPage> {
                                       children: [
                                         Text('How to use the app', style: TextStyle(color: textColor, fontSize: 18, fontWeight: FontWeight.w600)),
                                         const SizedBox(height: 4),
-                                        Text('Quick guide to features and gestures', style: TextStyle(color: subTextColor, fontSize: 14)),
+                                        Text('Quick guide to features, rest timer, & gestures', style: TextStyle(color: subTextColor, fontSize: 14)),
                                       ],
                                     ),
                                   ),
@@ -666,7 +793,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     
                     const SizedBox(height: 35),
 
-                    // DATA SECTION
                     Text('Data', style: TextStyle(color: subTextColor, fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
                     Container(
@@ -730,7 +856,6 @@ class _SettingsPageState extends State<SettingsPage> {
                     
                     const SizedBox(height: 35),
 
-                    // ABOUT APP & DEVELOPER SECTION
                     Text('About', style: TextStyle(color: subTextColor, fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
                     Container(
@@ -742,8 +867,6 @@ class _SettingsPageState extends State<SettingsPage> {
                       child: Column(
                         children: [
                           
-                          // THE FIX: Reordered! Developer info is now above App info
-                          // 1. DEVELOPER INFO
                           BouncingWidget(
                             onTap: () => _launchUrl('https://github.com/chathushkaimasara'),
                             child: Padding(
@@ -783,7 +906,6 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           Divider(height: 1, color: dividerColor),
 
-                          // 2. DEVELOPER GITHUB & KO-FI BUTTONS
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                             child: Row(
@@ -826,7 +948,6 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           Divider(height: 1, color: dividerColor),
 
-                          // 3. APP INFO
                           Padding(
                             padding: const EdgeInsets.all(20),
                             child: Row(
@@ -862,7 +983,6 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           Divider(height: 1, color: dividerColor),
 
-                          // 4. APP GITHUB REPO & TELEGRAM GROUP BUTTONS
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
                             child: Row(
@@ -905,7 +1025,6 @@ class _SettingsPageState extends State<SettingsPage> {
                           ),
                           Divider(height: 1, color: dividerColor),
 
-                          // 5. LICENSES
                           BouncingWidget(
                             onTap: () => Navigator.push(
                               context, 
@@ -946,7 +1065,6 @@ class _SettingsPageState extends State<SettingsPage> {
                         ],
                       ),
                     ),
-                    // Removed the 60px blank box here for a tighter scroll view
                   ],
                 ),
               ),
@@ -955,29 +1073,31 @@ class _SettingsPageState extends State<SettingsPage> {
                 top: 0,
                 left: 0,
                 right: 0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                    child: Container(
-                      color: frostedBg, 
-                      padding: EdgeInsets.only(
-                        top: MediaQuery.of(context).padding.top + 10,
-                        left: 20, 
-                        bottom: 15,
-                      ),
-                      child: Row(
-                        children: [
-                          BouncingWidget(
-                            onTap: () => Navigator.pop(context),
-                            child: CircleAvatar(
-                              radius: 20, 
-                              backgroundColor: cardColor, 
-                              child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
+                child: RepaintBoundary(
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                      child: Container(
+                        color: frostedBg, 
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top + 10,
+                          left: 20, 
+                          bottom: 15,
+                        ),
+                        child: Row(
+                          children: [
+                            BouncingWidget(
+                              onTap: () => Navigator.pop(context),
+                              child: CircleAvatar(
+                                radius: 20, 
+                                backgroundColor: cardColor, 
+                                child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 15),
-                          Text('Settings', style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.bold)),
-                        ],
+                            const SizedBox(width: 15),
+                            Text('Settings', style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -993,7 +1113,7 @@ class _SettingsPageState extends State<SettingsPage> {
 }
 
 // ---------------------------------------------------------
-// CUSTOM GUIDE PAGE WITH FROSTED GLASS
+// CUSTOM GUIDE PAGE WITH FULL RECENT FEATURE MANUAL
 // ---------------------------------------------------------
 class GuidePage extends StatelessWidget {
   final WorkoutState appState;
@@ -1061,53 +1181,65 @@ class GuidePage extends StatelessWidget {
               padding: EdgeInsets.only(top: topPadding, bottom: 60, left: 20, right: 20),
               children: [
                 
+                // 1. SCHEDULE & HOMESCREEN
                 _buildSectionTitle('Workouts & Schedule', textColor),
-                _buildGuideItem(Icons.add_box_rounded, 'Adding a Day', 'Tap the big "+" button on the home screen to create a new workout day (e.g., Push Day, Leg Day).', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
-                _buildGuideItem(Icons.swipe_rounded, 'Editing a Day', 'Press and hold any workout day card to reveal the hidden menu. From there, you can rename it, add a background picture, pin it to the top, or delete it.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
-                _buildGuideItem(Icons.drag_handle_rounded, 'Reordering', 'Simply hold and drag a workout day card to rearrange your schedule in any order you prefer.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.add_box_rounded, 'Adding a Workout Day', 'Tap the big "+" button on the home screen to create a new routine day (e.g., Push Day, Pull Day, Leg Day).', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.swipe_rounded, 'Editing a Day Card', 'Press and hold any workout day card to open the quick menu. You can rename it, add a custom background picture, crop/position the photo, pin it to the top, or delete it.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.drag_handle_rounded, 'Reordering Days', 'Hold and drag any workout day card up or down to arrange your weekly schedule in any order.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
                 
+                // 2. HOMESCREEN CUSTOMIZATION
+                _buildSectionTitle('Homescreen Customization', textColor),
+                _buildGuideItem(Icons.dashboard_customize_rounded, 'Custom Layout & Toggles', 'Under Settings > Homescreen, you can toggle the Calendar, Rest Timer, and Motivational Quote widgets on or off.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.swap_vert_rounded, 'Reordering Widgets', 'Hold and drag the sliders in Settings > Homescreen to reposition widgets above or below each other.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.format_quote_rounded, 'Motivational Quote', 'When enabled on your homescreen, tap directly on the quote banner at any time to type and save your own custom daily motivation.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+
+                // 3. INSIDE THE GYM & REST TIMER
                 _buildSectionTitle('Inside the Gym', textColor),
-                _buildGuideItem(Icons.fitness_center_rounded, 'Adding Exercises', 'Tap inside a day, then tap "+" to add exercises and their reps.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
-                _buildGuideItem(Icons.check_circle_rounded, 'Completing Sets', 'Tap the circle icon next to an exercise to mark it as completed while you work out.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
-                _buildGuideItem(Icons.horizontal_rule_rounded, 'Dividers', 'Use the divider button in the popup menu to separate your warmups from your main lifts.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.fitness_center_rounded, 'Adding Exercises & RPE', 'Inside a workout day, tap "+" to add exercises with target reps and optional RPE (Rate of Perceived Exertion).', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.timer_outlined, 'Active Rest Pill', 'Checking off an exercise set automatically pops up the Active Rest pill at the bottom of the screen. Tap "+15s" to add more rest time or tap the skip button when ready to lift. Un-checking a set automatically dismisses the rest timer.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.emoji_events_outlined, 'All-Time High (PRs)', 'Press and hold any exercise in your workout list. The popup menu will display your all-time highest weight lifted for that lift.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.horizontal_rule_rounded, 'Dividers', 'Use the divider button in the "+" menu to section your warmups, main compounds, and accessory movements.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
                 
-                _buildSectionTitle('Tracking Progress', textColor),
-                _buildGuideItem(Icons.bar_chart_rounded, 'The Progress Page', 'Tap the graph button on the home screen to see your progress. The app automatically groups all exercises by name.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
-                _buildGuideItem(Icons.add_chart_rounded, 'Logging Weight', 'Tap the "+" icon next to an exercise to quickly record your heaviest lift for that day.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
-                _buildGuideItem(Icons.show_chart_rounded, 'Viewing Graphs', 'Tap the line chart icon to see a beautiful graph of how your strength has increased over time.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                // 4. PROGRESS & BACKUPS
+                _buildSectionTitle('Progress & Data', textColor),
+                _buildGuideItem(Icons.bar_chart_rounded, 'The Progress Page', 'Tap the graph button on the bottom right of the homescreen to view your progress analytics across all lifts.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.add_chart_rounded, 'Logging Weight', 'Tap "+" next to an exercise on the Progress page to record weights and reps. The app automatically calculates your universal 1-Rep Max (1RM) and detects new PRs.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
+                _buildGuideItem(Icons.backup_rounded, 'Seamless Backups', 'Export your workouts, custom pictures, and history under Settings > Data to securely backup or restore your progress to any device.', textColor, subTextColor, cardColor, isDark, isPremiumBlack),
                 
               ],
             ),
           ),
 
-          // THE FROSTED GLASS HEADER
+          // FROSTED GLASS HEADER WITH GPU REPAINT BOUNDARY
           Positioned(
             top: 0,
             left: 0,
             right: 0,
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                child: Container(
-                  color: frostedBg, 
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 10,
-                    left: 20, 
-                    bottom: 15,
-                  ),
-                  child: Row(
-                    children: [
-                      BouncingWidget(
-                        onTap: () => Navigator.pop(context),
-                        child: CircleAvatar(
-                          radius: 20, 
-                          backgroundColor: cardColor, 
-                          child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
+            child: RepaintBoundary(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                  child: Container(
+                    color: frostedBg, 
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 10,
+                      left: 20, 
+                      bottom: 15,
+                    ),
+                    child: Row(
+                      children: [
+                        BouncingWidget(
+                          onTap: () => Navigator.pop(context),
+                          child: CircleAvatar(
+                            radius: 20, 
+                            backgroundColor: cardColor, 
+                            child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 15),
-                      Text('How to Use', style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.bold)),
-                    ],
+                        const SizedBox(width: 15),
+                        Text('How to Use', style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -1120,7 +1252,7 @@ class GuidePage extends StatelessWidget {
 }
 
 // ---------------------------------------------------------
-// CUSTOM APP LICENSES PAGE WITH FROSTED GLASS
+// CUSTOM APP LICENSES PAGE WITH REPAINT BOUNDARY
 // ---------------------------------------------------------
 class AppLicensesPage extends StatefulWidget {
   final WorkoutState appState;
@@ -1207,29 +1339,31 @@ class _AppLicensesPageState extends State<AppLicensesPage> {
             top: 0,
             left: 0,
             right: 0,
-            child: ClipRect(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                child: Container(
-                  color: frostedBg, 
-                  padding: EdgeInsets.only(
-                    top: MediaQuery.of(context).padding.top + 10,
-                    left: 20, 
-                    bottom: 15,
-                  ),
-                  child: Row(
-                    children: [
-                      BouncingWidget(
-                        onTap: () => Navigator.pop(context),
-                        child: CircleAvatar(
-                          radius: 20, 
-                          backgroundColor: cardColor, 
-                          child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
+            child: RepaintBoundary(
+              child: ClipRect(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                  child: Container(
+                    color: frostedBg, 
+                    padding: EdgeInsets.only(
+                      top: MediaQuery.of(context).padding.top + 10,
+                      left: 20, 
+                      bottom: 15,
+                    ),
+                    child: Row(
+                      children: [
+                        BouncingWidget(
+                          onTap: () => Navigator.pop(context),
+                          child: CircleAvatar(
+                            radius: 20, 
+                            backgroundColor: cardColor, 
+                            child: Icon(Icons.arrow_back_ios_new, color: textColor, size: 18)
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 15),
-                      Text('App Licenses', style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.bold)),
-                    ],
+                        const SizedBox(width: 15),
+                        Text('App Licenses', style: TextStyle(color: textColor, fontSize: 32, fontWeight: FontWeight.bold)),
+                      ],
+                    ),
                   ),
                 ),
               ),

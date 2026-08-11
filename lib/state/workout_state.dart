@@ -53,6 +53,13 @@ class WorkoutState extends ChangeNotifier {
 
   Map<String, List<WeightRecord>> exerciseProgress = {};
 
+  // THE FIX: Changed default toggles and widget order
+  bool showCalendar = true;
+  bool showTimer = true;
+  bool showQuote = false; // Now turned off by default
+  String customQuote = "Push harder than yesterday.";
+  List<String> homeWidgetOrder = ['calendar', 'timer', 'quote']; // Quote is now at the bottom
+
   WorkoutState() {
     loadData();
   }
@@ -111,6 +118,33 @@ class WorkoutState extends ChangeNotifier {
       _customColorHistory.removeLast();
     }
 
+    _saveData();
+  }
+
+  void toggleCalendar() {
+    showCalendar = !showCalendar;
+    _saveData();
+  }
+
+  void toggleTimer() {
+    showTimer = !showTimer;
+    _saveData();
+  }
+
+  void toggleQuote() {
+    showQuote = !showQuote;
+    _saveData();
+  }
+
+  void updateCustomQuote(String quote) {
+    customQuote = quote;
+    _saveData();
+  }
+
+  void reorderHomeWidgets(int oldIndex, int newIndex) {
+    if (oldIndex < newIndex) newIndex -= 1;
+    final item = homeWidgetOrder.removeAt(oldIndex);
+    homeWidgetOrder.insert(newIndex, item);
     _saveData();
   }
 
@@ -177,6 +211,11 @@ class WorkoutState extends ChangeNotifier {
         'customThemeColor': _customThemeColor.value,
         'customColorHistory': _customColorHistory,
         'exerciseProgress': exerciseProgress.map((k, v) => MapEntry(k, v.map((e) => e.toJson()).toList())), 
+        'showCalendar': showCalendar,
+        'showTimer': showTimer,
+        'showQuote': showQuote,
+        'customQuote': customQuote,
+        'homeWidgetOrder': homeWidgetOrder,
       };
 
       if (profileImagePath != null && File(profileImagePath!).existsSync()) {
@@ -239,6 +278,13 @@ class WorkoutState extends ChangeNotifier {
         isFirstLaunch = backup['isFirstLaunch'] ?? false;
         _useMaterialYou = backup['useMaterialYou'] ?? false;
         
+        // THE FIX: Set fallback settings identically
+        showCalendar = backup['showCalendar'] ?? true;
+        showTimer = backup['showTimer'] ?? true;
+        showQuote = backup['showQuote'] ?? false;
+        customQuote = backup['customQuote'] ?? "Push harder than yesterday.";
+        homeWidgetOrder = backup['homeWidgetOrder'] != null ? List<String>.from(backup['homeWidgetOrder']) : ['calendar', 'timer', 'quote'];
+
         if (backup['themePresetId'] != null && backup['themePresetId'] is String) {
           _themePresetId = backup['themePresetId'];
         } else {
@@ -340,12 +386,10 @@ class WorkoutState extends ChangeNotifier {
     _saveData();
   }
 
-  // THE FIX: Smart Migration Engine handles orphaned chart data perfectly
   void renameWorkout(String dayId, String workoutId, String newName, String newReps) {
     var day = days.firstWhere((d) => d.id == dayId);
     var workout = day.workouts.firstWhere((w) => w.id == workoutId);
 
-    // 1. Format the old name exactly how the progress map stores it
     String oldNameClean = workout.name.trim();
     if (oldNameClean.isNotEmpty) {
       oldNameClean = oldNameClean[0].toUpperCase() + oldNameClean.substring(1).toLowerCase();
@@ -354,17 +398,13 @@ class WorkoutState extends ChangeNotifier {
     workout.name = newName;
     if (!workout.isDivider) workout.reps = newReps;
 
-    // 2. Format the new name exactly how the progress map needs it
     String newNameClean = newName.trim();
     if (newNameClean.isNotEmpty) {
       newNameClean = newNameClean[0].toUpperCase() + newNameClean.substring(1).toLowerCase();
     }
 
-    // 3. If the exercise was renamed and it has a chart history...
     if (!workout.isDivider && oldNameClean != newNameClean && oldNameClean.isNotEmpty) {
       if (exerciseProgress.containsKey(oldNameClean)) {
-        
-        // Check if ANY other active exercise in the app is still using the old name
         bool isStillUsed = false;
         for (var d in days) {
           for (var w in d.workouts) {
@@ -382,21 +422,16 @@ class WorkoutState extends ChangeNotifier {
           if (isStillUsed) break;
         }
 
-        // 4. If it's safe, seamlessly transfer all past data to the new name!
         if (!isStillUsed) {
           if (!exerciseProgress.containsKey(newNameClean)) {
             exerciseProgress[newNameClean] = [];
           }
           exerciseProgress[newNameClean]!.addAll(exerciseProgress[oldNameClean]!);
-          // Sort mathematically by date so the chart line draws perfectly
           exerciseProgress[newNameClean]!.sort((a, b) => a.date.compareTo(b.date));
-          
-          // Delete the old orphaned record memory
           exerciseProgress.remove(oldNameClean);
         }
       }
     }
-
     _saveData();
   }
 
@@ -447,6 +482,12 @@ class WorkoutState extends ChangeNotifier {
     await prefs.setInt('custom_theme_color', _customThemeColor.value);
     await prefs.setString('custom_color_history', jsonEncode(_customColorHistory)); 
     
+    await prefs.setBool('show_calendar', showCalendar);
+    await prefs.setBool('show_timer', showTimer);
+    await prefs.setBool('show_quote', showQuote);
+    await prefs.setString('custom_quote', customQuote);
+    await prefs.setStringList('home_widget_order', homeWidgetOrder);
+
     if (profileImagePath != null) {
       await prefs.setString('profile_image', profileImagePath!);
     } else {
@@ -471,6 +512,12 @@ class WorkoutState extends ChangeNotifier {
     _useMaterialYou = prefs.getBool('use_material_you') ?? false;
     _themePresetId = prefs.getString('theme_preset') ?? 'default_black';
     
+    showCalendar = prefs.getBool('show_calendar') ?? true;
+    showTimer = prefs.getBool('show_timer') ?? true;
+    showQuote = prefs.getBool('show_quote') ?? false; // THE FIX: Default Off
+    customQuote = prefs.getString('custom_quote') ?? "Push harder than yesterday.";
+    homeWidgetOrder = prefs.getStringList('home_widget_order') ?? ['calendar', 'timer', 'quote']; // THE FIX: Order
+
     int? customColorVal = prefs.getInt('custom_theme_color');
     _customThemeColor = customColorVal != null ? Color(customColorVal) : const Color(0xFF6200EE);
 
