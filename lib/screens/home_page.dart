@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart'; 
 import 'package:flutter/cupertino.dart'; 
 import 'package:flutter/services.dart'; 
 import 'package:image_picker/image_picker.dart';
@@ -29,8 +30,14 @@ class _HomePageState extends State<HomePage> {
   Offset _menuPosition = Offset.zero;
   Offset? _globalPointerPosition; 
 
+  final GlobalKey _headerKey = GlobalKey();
+  double _headerHeight = 350.0; 
+  
+  final ScrollController _listScrollController = ScrollController();
+
   @override
   void dispose() {
+    _listScrollController.dispose();
     _selectedDayIdNotifier.dispose();
     _closeMenu(); 
     super.dispose();
@@ -380,10 +387,15 @@ class _HomePageState extends State<HomePage> {
         bool hasProfileImage = widget.appState.profileImagePath != null && widget.appState.profileImagePath!.isNotEmpty;
         final days = widget.appState.days;
         
-        double dynamicTopPadding = MediaQuery.of(context).padding.top + 145.0; 
-        if (widget.appState.showQuote) dynamicTopPadding += 70.0;
-        if (widget.appState.showCalendar) dynamicTopPadding += 132.0;
-        if (widget.appState.showTimer) dynamicTopPadding += 73.0;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final RenderBox? box = _headerKey.currentContext?.findRenderObject() as RenderBox?;
+          if (box != null && (box.size.height - _headerHeight).abs() > 0.5) {
+            setState(() {
+              _headerHeight = box.size.height;
+            });
+          }
+        });
 
         return Scaffold(
           backgroundColor: bgColor,
@@ -454,62 +466,99 @@ class _HomePageState extends State<HomePage> {
                     },
                     child: days.isEmpty 
                       ? Padding(
-                          padding: EdgeInsets.only(top: dynamicTopPadding + 20),
+                          padding: EdgeInsets.only(top: _headerHeight + 20),
                           child: const Align(
                             alignment: Alignment.topCenter,
                             child: Text("Tap '+' to create your first workout day", style: TextStyle(color: Colors.grey)),
                           ),
                         )
-                      : ReorderableListView.builder(
-                          padding: EdgeInsets.only(top: dynamicTopPadding, bottom: 100, left: 20, right: 20),
-                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                          buildDefaultDragHandles: false,
-                          clipBehavior: Clip.none, 
-                          proxyDecorator: (Widget child, int index, Animation<double> animation) {
-                            return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
-                          },
-                          itemCount: days.length,
-                          onReorderStart: (index) {
-                            HapticFeedback.selectionClick();
-                            Future.microtask(() {
-                              if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
-                                _menuOverlayEntry!.remove();
-                                Overlay.of(context).insert(_menuOverlayEntry!);
-                              }
-                            });
-                          },
-                          onReorder: (oldIndex, newIndex) {
-                            _closeMenu();
-                            widget.appState.reorderDays(oldIndex, newIndex);
-                          },
-                          itemBuilder: (context, index) {
-                            final day = days[index];
-                            return Padding(
-                              key: ValueKey(day.id),
-                              padding: const EdgeInsets.only(bottom: 20.0),
-                              child: RepaintBoundary(
-                                child: _DayCard(
-                                  day: day,
-                                  index: index, 
-                                  selectedIdNotifier: _selectedDayIdNotifier, 
-                                  isDark: isDark,
-                                  useMaterialYou: useMaterialYou,
-                                  textColor: textColor,
-                                  onTap: () {
-                                    _closeMenu();
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
-                                      ),
+                      : NotificationListener<ScrollNotification>(
+                          onNotification: (notification) {
+                            bool shouldSnap = false;
+                            
+                            if (notification is UserScrollNotification && notification.direction == ScrollDirection.idle) {
+                              shouldSnap = true;
+                            } 
+                            else if (notification is ScrollEndNotification) {
+                              shouldSnap = true;
+                            }
+
+                            if (shouldSnap && _listScrollController.hasClients) {
+                              final maxScroll = _listScrollController.position.maxScrollExtent;
+                              final currentScroll = _listScrollController.offset;
+                              
+                              if (maxScroll > 0 && maxScroll < 250 && currentScroll > 0) {
+                                Future.microtask(() {
+                                  if (mounted && _listScrollController.hasClients) {
+                                    _listScrollController.animateTo(
+                                      0.0,
+                                      duration: const Duration(milliseconds: 300), 
+                                      curve: Curves.easeOutCubic,
                                     );
-                                  },
-                                  onOpenMenu: (pos) => _openMenu(day.id, pos),
-                                  onCloseMenu: _closeMenu,
-                                ),
-                              ),
-                            );
+                                  }
+                                });
+                              }
+                            }
+                            return false;
                           },
+                          child: ReorderableListView.builder(
+                            scrollController: _listScrollController,
+                            // THE FIX: Reduced padding from +25.0 to +5.0 to pull the cards tightly under the header
+                            padding: EdgeInsets.only(
+                              top: _headerHeight + 12.0, 
+                              bottom: days.length <= 2 ? 0.0 : 120.0, 
+                              left: 20, 
+                              right: 20
+                            ),
+                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                            buildDefaultDragHandles: false,
+                            clipBehavior: Clip.none, 
+                            proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                              return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
+                            },
+                            itemCount: days.length,
+                            onReorderStart: (index) {
+                              HapticFeedback.selectionClick();
+                              Future.microtask(() {
+                                if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
+                                  _menuOverlayEntry!.remove();
+                                  Overlay.of(context).insert(_menuOverlayEntry!);
+                                }
+                              });
+                            },
+                            onReorder: (oldIndex, newIndex) {
+                              _closeMenu();
+                              widget.appState.reorderDays(oldIndex, newIndex);
+                            },
+                            itemBuilder: (context, index) {
+                              final day = days[index];
+                              return Padding(
+                                key: ValueKey(day.id),
+                                padding: const EdgeInsets.only(bottom: 20.0),
+                                child: RepaintBoundary(
+                                  child: _DayCard(
+                                    day: day,
+                                    index: index, 
+                                    selectedIdNotifier: _selectedDayIdNotifier, 
+                                    isDark: isDark,
+                                    useMaterialYou: useMaterialYou,
+                                    textColor: textColor,
+                                    onTap: () {
+                                      _closeMenu();
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
+                                        ),
+                                      );
+                                    },
+                                    onOpenMenu: (pos) => _openMenu(day.id, pos),
+                                    onCloseMenu: _closeMenu,
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ),
                   ),
                 ),
@@ -519,124 +568,127 @@ class _HomePageState extends State<HomePage> {
                 top: 0,
                 left: 0,
                 right: 0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
-                    child: Container(
-                      color: frostedBg, 
-                      padding: EdgeInsets.only(
-                        top: MediaQuery.of(context).padding.top + 25,
-                        left: 20, 
-                        right: 20,
-                        bottom: 15,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  'My Workouts', 
-                                  style: TextStyle(
-                                    fontFamily: 'WorkoutFont', 
-                                    fontSize: 34, 
-                                    color: textColor, 
-                                    height: 1.0
+                child: RepaintBoundary(
+                  key: _headerKey, 
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ImageFilter.blur(sigmaX: 15.0, sigmaY: 15.0),
+                      child: Container(
+                        color: frostedBg, 
+                        padding: EdgeInsets.only(
+                          top: MediaQuery.of(context).padding.top + 25,
+                          left: 20, 
+                          right: 20,
+                          bottom: 20, 
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    'My Workouts', 
+                                    style: TextStyle(
+                                      fontFamily: 'WorkoutFont', 
+                                      fontSize: 34, 
+                                      color: textColor, 
+                                      height: 1.0
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
                                 ),
-                              ),
-                              const SizedBox(width: 15),
-                              BouncingWidget(
-                                onTap: () {
-                                  FocusManager.instance.primaryFocus?.unfocus();
-                                  Future.delayed(const Duration(milliseconds: 50), () {
-                                    if (!mounted) return;
-                                    Navigator.push(
-                                      context,
-                                      PageRouteBuilder(
-                                        transitionDuration: const Duration(milliseconds: 250),
-                                        reverseTransitionDuration: const Duration(milliseconds: 150),
-                                        pageBuilder: (context, animation, secondaryAnimation) => SettingsPage(appState: widget.appState),
-                                        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-                                          return ScaleTransition(
-                                            alignment: const Alignment(0.8, -0.8),
-                                            scale: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeIn),
-                                            child: FadeTransition(opacity: animation, child: child),
-                                          );
-                                        },
-                                      ),
-                                    );
-                                  });
-                                },
-                                child: Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    border: Border.all(color: borderColor, width: 0.5),
-                                    color: hasProfileImage ? null : Colors.transparent,
-                                  ),
-                                  child: hasProfileImage 
-                                    ? ClipOval(
-                                        child: Image.file(
-                                          File(widget.appState.profileImagePath!),
-                                          fit: BoxFit.cover,
-                                          cacheWidth: 100,
-                                          gaplessPlayback: true,
+                                const SizedBox(width: 15),
+                                BouncingWidget(
+                                  onTap: () {
+                                    FocusManager.instance.primaryFocus?.unfocus();
+                                    Future.delayed(const Duration(milliseconds: 50), () {
+                                      if (!mounted) return;
+                                      Navigator.push(
+                                        context,
+                                        PageRouteBuilder(
+                                          transitionDuration: const Duration(milliseconds: 250),
+                                          reverseTransitionDuration: const Duration(milliseconds: 150),
+                                          pageBuilder: (context, animation, secondaryAnimation) => SettingsPage(appState: widget.appState),
+                                          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                                            return ScaleTransition(
+                                              alignment: const Alignment(0.8, -0.8),
+                                              scale: CurvedAnimation(parent: animation, curve: Curves.easeOutCubic, reverseCurve: Curves.easeIn),
+                                              child: FadeTransition(opacity: animation, child: child),
+                                            );
+                                          },
                                         ),
-                                      )
-                                    : Icon(Icons.person, color: textColor, size: 24),
-                                ),
-                              )
-                            ],
-                          ),
-                          const SizedBox(height: 25),
-                          
-                          ...widget.appState.homeWidgetOrder.map((widgetName) {
-                            if (widgetName == 'quote' && widget.appState.showQuote) {
-                              return Padding(
-                                key: const ValueKey('home_widget_quote'),
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: _buildQuoteWidget(scheme, dialogBg, textColor),
-                              );
-                            } else if (widgetName == 'calendar' && widget.appState.showCalendar) {
-                              return Padding(
-                                key: const ValueKey('home_widget_calendar'),
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: _HomeCalendarWidget(
-                                  isDark: isDark,
-                                  useMaterialYou: useMaterialYou,
-                                  scheme: scheme,
-                                  primaryColor: primaryColor,
-                                  invertedColor: invertedColor,
-                                  textColor: textColor,
-                                ),
-                              );
-                            } else if (widgetName == 'timer' && widget.appState.showTimer) {
-                              return Padding(
-                                key: const ValueKey('home_widget_timer'),
-                                padding: const EdgeInsets.only(bottom: 20),
-                                child: _WorkoutTimerWidget(
-                                  isDark: isDark,
-                                  useMaterialYou: useMaterialYou,
-                                  scheme: scheme,
-                                  textColor: textColor,
-                                  primaryColor: primaryColor,
-                                  invertedColor: invertedColor,
-                                ),
-                              );
-                            }
-                            return const SizedBox.shrink();
-                          }).toList(),
-                          
-                          Text('My Schedule >', style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
-                        ],
+                                      );
+                                    });
+                                  },
+                                  child: Container(
+                                    width: 44,
+                                    height: 44,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: borderColor, width: 0.5),
+                                      color: hasProfileImage ? null : Colors.transparent,
+                                    ),
+                                    child: hasProfileImage 
+                                      ? ClipOval(
+                                          child: Image.file(
+                                            File(widget.appState.profileImagePath!),
+                                            fit: BoxFit.cover,
+                                            cacheWidth: 100,
+                                            gaplessPlayback: true,
+                                          ),
+                                        )
+                                      : Icon(Icons.person, color: textColor, size: 24),
+                                  ),
+                                )
+                              ],
+                            ),
+                            const SizedBox(height: 25),
+                            
+                            ...widget.appState.homeWidgetOrder.map((widgetName) {
+                              if (widgetName == 'quote' && widget.appState.showQuote) {
+                                return Padding(
+                                  key: const ValueKey('home_widget_quote'),
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: _buildQuoteWidget(scheme, dialogBg, textColor),
+                                );
+                              } else if (widgetName == 'calendar' && widget.appState.showCalendar) {
+                                return Padding(
+                                  key: const ValueKey('home_widget_calendar'),
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: _HomeCalendarWidget(
+                                    isDark: isDark,
+                                    useMaterialYou: useMaterialYou,
+                                    scheme: scheme,
+                                    primaryColor: primaryColor,
+                                    invertedColor: invertedColor,
+                                    textColor: textColor,
+                                  ),
+                                );
+                              } else if (widgetName == 'timer' && widget.appState.showTimer) {
+                                return Padding(
+                                  key: const ValueKey('home_widget_timer'),
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: _WorkoutTimerWidget(
+                                    isDark: isDark,
+                                    useMaterialYou: useMaterialYou,
+                                    scheme: scheme,
+                                    textColor: textColor,
+                                    primaryColor: primaryColor,
+                                    invertedColor: invertedColor,
+                                  ),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            }).toList(),
+                            
+                            Text('My Schedule >', style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -711,7 +763,6 @@ class _HomeCalendarWidgetState extends State<_HomeCalendarWidget> {
       children: [
         Text(monthYear, style: TextStyle(color: widget.textColor, fontSize: 18, fontWeight: FontWeight.bold)),
         const SizedBox(height: 12),
-        // THE FIX: Isolated ShaderMask in a RepaintBoundary to eliminate 60fps GPU recalculations
         RepaintBoundary(
           child: ShaderMask(
             shaderCallback: (Rect bounds) {
@@ -920,7 +971,6 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
   void _startTimer() {
     setState(() => _state = TimerState.running);
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      // THE FIX: Strict unmounted checks prevent the timer from triggering setState on disposed widgets!
       if (!mounted) {
         timer.cancel();
         return;

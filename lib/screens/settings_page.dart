@@ -39,7 +39,7 @@ class _SettingsPageState extends State<SettingsPage> {
         });
       }
     } catch (e) {
-      if (mounted) setState(() => _appVersion = 'Version 1.2.0');
+      if (mounted) setState(() => _appVersion = 'Version 2.0.0');
     }
   }
   
