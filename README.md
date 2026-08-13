@@ -6,7 +6,7 @@
 <h1 align="center">My Workouts</h1>
 
 <p align="center">
-  <strong>Your Ultimate Gym Log — Minimal, Ad-Free, and 100% Offline.</strong>
+  <strong>Your Ultimate Gym Log - Minimal, Ad-Free, and 100% Offline.</strong>
 </p>
 
 <p align="center">
@@ -68,7 +68,7 @@
 * **Sleek UI/UX:** iOS-style frosted glass UI, system-adaptive light/dark mode, and custom animations.
 * **Material You & Custom Themes:** Seamlessly adapts to your device's system wallpaper colors (Material You), or lets you personalize the app using curated presets and a precision hex color picker.
 * **Smart Routine Builder:** Custom workout days (e.g., Push, Pull, Legs) with reorderable scheduling and custom background images.
-* **On-The-Fly Logging:** Log sets, reps, and warmups in real-time with instant completion checkmarks.
+* **On-The-Fly Logging:** Log sets, reps, and warmups in real time with instant completion checkmarks.
 * **Progress Tracking:** Automatically visualizes personal records over time using built-in line charts.
 * **100% Private & Offline:** Zero tracking and zero account creation. Includes local data export and import for seamless backups.
 
