@@ -2,8 +2,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'state/workout_state.dart';
-import 'screens/home_page.dart';
-import 'screens/welcome_page.dart';
 import 'screens/splash_screen.dart';
 import 'package:dynamic_color/dynamic_color.dart'; 
 
@@ -118,8 +116,6 @@ class _WorkoutAppState extends State<WorkoutApp> {
             } else if (customPresetId == 'custom_color') {
               Color customColor = appState.customThemeColor;
               HSVColor hsv = HSVColor.fromColor(customColor);
-              bool isGrayscale = hsv.saturation < 0.15;
-              
               Color darkPrimary = hsv.value < 0.3 ? Colors.grey.shade400 : customColor;
               
               lightScheme = ColorScheme.fromSeed(seedColor: customColor, primary: customColor, brightness: Brightness.light);
@@ -160,26 +156,24 @@ class _WorkoutAppState extends State<WorkoutApp> {
               debugShowCheckedModeBanner: false,
               themeMode: appState.isDarkMode ? ThemeMode.dark : ThemeMode.light,
               
-              darkTheme: ThemeData.dark().copyWith(
-                useMaterial3: true,
+              darkTheme: ThemeData.dark(useMaterial3: true).copyWith(
                 colorScheme: darkScheme,
                 scaffoldBackgroundColor: useMaterialYou ? darkScheme.surface : (customPresetId == 'default_black' ? Colors.black : darkScheme.surface),
                 primaryColor: useMaterialYou ? darkScheme.primary : (customPresetId == 'default_black' ? Colors.white : darkScheme.primary),
                 textSelectionTheme: TextSelectionThemeData(
                   cursorColor: darkScheme.primary,
-                  selectionColor: darkScheme.primary.withOpacity(0.3),
+                  selectionColor: darkScheme.primary.withValues(alpha: 0.3),
                   selectionHandleColor: darkScheme.primary, 
                 ),
               ),
               
-              theme: ThemeData.light().copyWith(
-                useMaterial3: true,
+              theme: ThemeData.light(useMaterial3: true).copyWith(
                 colorScheme: lightScheme,
                 scaffoldBackgroundColor: useMaterialYou ? lightScheme.surface : (customPresetId == 'default_black' ? const Color(0xFFF2F2F7) : lightScheme.surface),
                 primaryColor: useMaterialYou ? lightScheme.primary : (customPresetId == 'default_black' ? Colors.black : lightScheme.primary),
                 textSelectionTheme: TextSelectionThemeData(
                   cursorColor: lightScheme.primary,
-                  selectionColor: lightScheme.primary.withOpacity(0.3),
+                  selectionColor: lightScheme.primary.withValues(alpha: 0.3),
                   selectionHandleColor: lightScheme.primary,
                 ),
               ),

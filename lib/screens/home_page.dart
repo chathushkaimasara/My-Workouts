@@ -1,8 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart'; 
+import 'package:flutter/material.dart'; 
 import 'package:flutter/cupertino.dart'; 
 import 'package:flutter/services.dart'; 
 import 'package:image_picker/image_picker.dart';
@@ -173,7 +172,7 @@ class _HomePageState extends State<HomePage> {
     
     showGeneralDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       barrierDismissible: true,
       barrierLabel: "Dismiss",
       transitionDuration: const Duration(milliseconds: 350),
@@ -222,7 +221,7 @@ class _HomePageState extends State<HomePage> {
     TextEditingController nameController = TextEditingController(text: day.name);
     showGeneralDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       barrierDismissible: true,
       barrierLabel: "Dismiss",
       transitionDuration: const Duration(milliseconds: 350),
@@ -271,7 +270,7 @@ class _HomePageState extends State<HomePage> {
     TextEditingController quoteController = TextEditingController(text: widget.appState.customQuote);
     showGeneralDialog(
       context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
+      barrierColor: Colors.black.withValues(alpha: 0.7),
       barrierDismissible: true,
       barrierLabel: "Dismiss",
       transitionDuration: const Duration(milliseconds: 350),
@@ -350,9 +349,9 @@ class _HomePageState extends State<HomePage> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
         decoration: BoxDecoration(
-          color: scheme.primary.withOpacity(0.1),
+          color: scheme.primary.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: scheme.primary.withOpacity(0.3)),
+          border: Border.all(color: scheme.primary.withValues(alpha:0.3)),
         ),
         child: Text(
           '"${widget.appState.customQuote}"',
@@ -380,9 +379,9 @@ class _HomePageState extends State<HomePage> {
         final Color primaryColor = isPremiumBlack ? (isDark ? Colors.white : Colors.black) : scheme.primary;
         final Color invertedColor = isPremiumBlack ? (isDark ? Colors.black : Colors.white) : scheme.onPrimary;
         final Color dialogBg = isPremiumBlack ? (isDark ? const Color(0xFF121212) : Colors.white) : scheme.surfaceContainerHigh;
-        final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withOpacity(0.4) : Colors.white.withOpacity(0.6)) : scheme.surface.withOpacity(0.6);
+        final Color frostedBg = isPremiumBlack ? (isDark ? Colors.black.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.6)) : scheme.surface.withValues(alpha: 0.6);
         final Color borderColor = isPremiumBlack ? (isDark ? Colors.white24 : Colors.black12) : scheme.outlineVariant;
-        final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).withOpacity(0.9) : Colors.white.withOpacity(0.9)) : scheme.surfaceContainerHigh.withOpacity(0.9);
+        final Color progressBtnBg = isPremiumBlack ? (isDark ? const Color(0xFF2C2C2E).withValues(alpha: 0.9) : Colors.white.withValues(alpha: 0.9)) : scheme.surfaceContainerHigh.withValues(alpha: 0.9);
 
         bool hasProfileImage = widget.appState.profileImagePath != null && widget.appState.profileImagePath!.isNotEmpty;
         final days = widget.appState.days;
@@ -418,12 +417,12 @@ class _HomePageState extends State<HomePage> {
                     borderRadius: BorderRadius.circular(16),
                     color: progressBtnBg,
                     border: Border.all(
-                      color: useMaterialYou ? scheme.outline.withOpacity(0.2) : (isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)), 
+                      color: useMaterialYou ? scheme.outline.withValues(alpha: 0.2) : (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.08)), 
                       width: 0.5
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.4 : 0.15), 
+                        color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.15), 
                         blurRadius: 12, 
                         offset: const Offset(0, 4)
                       )
@@ -441,7 +440,11 @@ class _HomePageState extends State<HomePage> {
                   decoration: BoxDecoration(
                     color: primaryColor,
                     borderRadius: BorderRadius.circular(20),
-                    boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+                    border: Border.all(
+                      color: useMaterialYou ? scheme.outline.withValues(alpha: 0.2) : (isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.08)), 
+                      width: 0.5
+                    ),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 10, offset: const Offset(0, 5))],
                   ),
                   child: Icon(Icons.add, color: invertedColor, size: 30),
                 ),
@@ -472,93 +475,64 @@ class _HomePageState extends State<HomePage> {
                             child: Text("Tap '+' to create your first workout day", style: TextStyle(color: Colors.grey)),
                           ),
                         )
-                      : NotificationListener<ScrollNotification>(
-                          onNotification: (notification) {
-                            bool shouldSnap = false;
-                            
-                            if (notification is UserScrollNotification && notification.direction == ScrollDirection.idle) {
-                              shouldSnap = true;
-                            } 
-                            else if (notification is ScrollEndNotification) {
-                              shouldSnap = true;
-                            }
-
-                            if (shouldSnap && _listScrollController.hasClients) {
-                              final maxScroll = _listScrollController.position.maxScrollExtent;
-                              final currentScroll = _listScrollController.offset;
-                              
-                              if (maxScroll > 0 && maxScroll < 250 && currentScroll > 0) {
-                                Future.microtask(() {
-                                  if (mounted && _listScrollController.hasClients) {
-                                    _listScrollController.animateTo(
-                                      0.0,
-                                      duration: const Duration(milliseconds: 300), 
-                                      curve: Curves.easeOutCubic,
-                                    );
-                                  }
-                                });
-                              }
-                            }
-                            return false;
-                          },
-                          child: ReorderableListView.builder(
-                            scrollController: _listScrollController,
-                            // THE FIX: Reduced padding from +25.0 to +5.0 to pull the cards tightly under the header
-                            padding: EdgeInsets.only(
-                              top: _headerHeight + 12.0, 
-                              bottom: days.length <= 2 ? 0.0 : 120.0, 
-                              left: 20, 
-                              right: 20
-                            ),
-                            physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
-                            buildDefaultDragHandles: false,
-                            clipBehavior: Clip.none, 
-                            proxyDecorator: (Widget child, int index, Animation<double> animation) {
-                              return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
-                            },
-                            itemCount: days.length,
-                            onReorderStart: (index) {
-                              HapticFeedback.selectionClick();
-                              Future.microtask(() {
-                                if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
-                                  _menuOverlayEntry!.remove();
-                                  Overlay.of(context).insert(_menuOverlayEntry!);
-                                }
-                              });
-                            },
-                            onReorder: (oldIndex, newIndex) {
-                              _closeMenu();
-                              widget.appState.reorderDays(oldIndex, newIndex);
-                            },
-                            itemBuilder: (context, index) {
-                              final day = days[index];
-                              return Padding(
-                                key: ValueKey(day.id),
-                                padding: const EdgeInsets.only(bottom: 20.0),
-                                child: RepaintBoundary(
-                                  child: _DayCard(
-                                    day: day,
-                                    index: index, 
-                                    selectedIdNotifier: _selectedDayIdNotifier, 
-                                    isDark: isDark,
-                                    useMaterialYou: useMaterialYou,
-                                    textColor: textColor,
-                                    onTap: () {
-                                      _closeMenu();
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
-                                        ),
-                                      );
-                                    },
-                                    onOpenMenu: (pos) => _openMenu(day.id, pos),
-                                    onCloseMenu: _closeMenu,
-                                  ),
-                                ),
-                              );
-                            },
+                      // THE FIX: Stripped out the annoying auto-scroll listener entirely, leaving only native physics!
+                      : ReorderableListView.builder(
+                          scrollController: _listScrollController,
+                          padding: EdgeInsets.only(
+                            top: _headerHeight + 12.0, 
+                            bottom: days.length <= 2 ? 0.0 : 120.0, 
+                            left: 20, 
+                            right: 20
                           ),
+                          physics: const BouncingScrollPhysics(parent: AlwaysScrollableScrollPhysics()),
+                          buildDefaultDragHandles: false,
+                          clipBehavior: Clip.none, 
+                          proxyDecorator: (Widget child, int index, Animation<double> animation) {
+                            return Material(type: MaterialType.transparency, elevation: 0, color: Colors.transparent, child: child);
+                          },
+                          itemCount: days.length,
+                          onReorderStart: (index) {
+                            HapticFeedback.selectionClick();
+                            Future.microtask(() {
+                              if (!context.mounted) return;
+                              if (_menuOverlayEntry != null && _menuOverlayEntry!.mounted) {
+                                _menuOverlayEntry!.remove();
+                                Overlay.of(context).insert(_menuOverlayEntry!);
+                              }
+                            });
+                          },
+                          onReorder: (oldIndex, newIndex) {
+                            _closeMenu();
+                            widget.appState.reorderDays(oldIndex, newIndex);
+                          },
+                          itemBuilder: (context, index) {
+                            final day = days[index];
+                            return Padding(
+                              key: ValueKey(day.id),
+                              padding: const EdgeInsets.only(bottom: 20.0),
+                              child: RepaintBoundary(
+                                child: _DayCard(
+                                  day: day,
+                                  index: index, 
+                                  selectedIdNotifier: _selectedDayIdNotifier, 
+                                  isDark: isDark,
+                                  useMaterialYou: useMaterialYou,
+                                  textColor: textColor,
+                                  onTap: () {
+                                    _closeMenu();
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => WorkoutPage(appState: widget.appState, dayId: day.id),
+                                      ),
+                                    );
+                                  },
+                                  onOpenMenu: (pos) => _openMenu(day.id, pos),
+                                  onCloseMenu: _closeMenu,
+                                ),
+                              ),
+                            );
+                          },
                         ),
                   ),
                 ),
@@ -607,7 +581,7 @@ class _HomePageState extends State<HomePage> {
                                   onTap: () {
                                     FocusManager.instance.primaryFocus?.unfocus();
                                     Future.delayed(const Duration(milliseconds: 50), () {
-                                      if (!mounted) return;
+                                      if (!context.mounted) return;
                                       Navigator.push(
                                         context,
                                         PageRouteBuilder(
@@ -684,7 +658,7 @@ class _HomePageState extends State<HomePage> {
                                 );
                               }
                               return const SizedBox.shrink();
-                            }).toList(),
+                            }),
                             
                             Text('My Schedule >', style: TextStyle(color: textColor, fontSize: 20, fontWeight: FontWeight.bold)),
                           ],
@@ -714,7 +688,6 @@ class _HomeCalendarWidget extends StatefulWidget {
   final Color textColor;
 
   const _HomeCalendarWidget({
-    super.key,
     required this.isDark,
     required this.useMaterialYou,
     required this.scheme,
@@ -795,7 +768,7 @@ class _HomeCalendarWidgetState extends State<_HomeCalendarWidget> {
                     
                     final Color unselectedChipBg = widget.useMaterialYou
                         ? widget.scheme.surfaceContainerLow
-                        : (widget.isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05));
+                        : (widget.isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05));
           
                     return AnimatedBuilder(
                       animation: _calendarScrollController,
@@ -832,10 +805,10 @@ class _HomeCalendarWidgetState extends State<_HomeCalendarWidget> {
                             border: isToday 
                               ? null 
                               : Border.all(
-                                  color: widget.useMaterialYou ? widget.scheme.outlineVariant.withOpacity(0.5) : (widget.isDark ? Colors.white.withOpacity(0.15) : Colors.black.withOpacity(0.08)), 
+                                  color: widget.useMaterialYou ? widget.scheme.outlineVariant.withValues(alpha: 0.5) : (widget.isDark ? Colors.white.withValues(alpha: 0.15) : Colors.black.withValues(alpha: 0.08)), 
                                   width: 0.5
                                 ),
-                            boxShadow: !widget.isDark && !isToday ? [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 8)] : [],
+                            boxShadow: !widget.isDark && !isToday ? [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 8)] : [],
                           ),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -1004,7 +977,7 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
   Widget build(BuildContext context) {
     final Color trackColor = widget.useMaterialYou
         ? widget.scheme.surfaceContainerHigh
-        : (widget.isDark ? Colors.white.withOpacity(0.12) : Colors.black.withOpacity(0.05));
+        : (widget.isDark ? Colors.white.withValues(alpha: 0.12) : Colors.black.withValues(alpha: 0.05));
 
     return SizedBox(
       height: 48, 
@@ -1033,7 +1006,7 @@ class _WorkoutTimerWidgetState extends State<_WorkoutTimerWidget> with SingleTic
                   shape: BoxShape.circle,
                   color: _state == TimerState.running ? trackColor : widget.primaryColor,
                   border: Border.all(
-                    color: _state == TimerState.running ? widget.textColor.withOpacity(0.1) : Colors.transparent,
+                    color: _state == TimerState.running ? widget.textColor.withValues(alpha: 0.1) : Colors.transparent,
                     width: 1,
                   ),
                 ),
@@ -1169,7 +1142,6 @@ class _DayCard extends StatefulWidget {
   final VoidCallback onCloseMenu;
 
   const _DayCard({
-    super.key,
     required this.day,
     required this.index,
     required this.selectedIdNotifier,
@@ -1285,7 +1257,7 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
               decoration: BoxDecoration(
                 color: cardColor, 
                 borderRadius: BorderRadius.circular(24),
-                boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 15)] : [],
+                boxShadow: !widget.isDark && !widget.useMaterialYou ? [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 15)] : [],
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(24),
@@ -1299,7 +1271,7 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
                         cacheWidth: 500,
                         gaplessPlayback: true,
                         colorBlendMode: BlendMode.darken,
-                        color: Colors.black.withOpacity(0.4),
+                        color: Colors.black.withValues(alpha: 0.4),
                       ),
                     Padding(
                       padding: const EdgeInsets.all(24.0),
@@ -1324,7 +1296,7 @@ class _DayCardState extends State<_DayCard> with SingleTickerProviderStateMixin 
                       Positioned(
                         top: 20,
                         right: 22,
-                        child: Icon(Icons.push_pin, color: displayTextColor.withOpacity(0.8), size: 22),
+                        child: Icon(Icons.push_pin, color: displayTextColor.withValues(alpha: 0.8), size: 22),
                       ),
                   ],
                 ),
@@ -1378,7 +1350,7 @@ class _DayFloatingMenu extends StatelessWidget {
     double leftPos = (position.dx - 110).clamp(15.0, screenWidth - 235.0);
 
     final Color menuBg = useMaterialYou ? scheme.surfaceContainer : (isDark ? const Color(0xFF1C1C1E) : Colors.white);
-    final Color dividerColor = useMaterialYou ? scheme.outlineVariant : (isDark ? Colors.white.withOpacity(0.1) : Colors.black.withOpacity(0.1));
+    final Color dividerColor = useMaterialYou ? scheme.outlineVariant : (isDark ? Colors.white.withValues(alpha: 0.1) : Colors.black.withValues(alpha: 0.1));
 
     return Positioned(
       top: topPos,
@@ -1400,7 +1372,7 @@ class _DayFloatingMenu extends StatelessWidget {
             color: menuBg, 
             borderRadius: BorderRadius.circular(18),
             border: Border.all(color: dividerColor, width: 1),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(isDark ? 0.6 : 0.15), blurRadius: 20, offset: const Offset(0, 10))],
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.6 : 0.15), blurRadius: 20, offset: const Offset(0, 10))],
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
